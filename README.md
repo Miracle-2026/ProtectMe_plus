@@ -1,2 +1,2 @@
-# ProtectMe-
+# ProtectMe_plus
 A COMMUNITY-CENTRED SAFETY APPLICATION
