@@ -19,6 +19,14 @@ const io = socketio(server, {
 app.use(cors());
 app.use(express.json());
 const authRoutes = require('./routes/authRoutes');
+const { authenticate } = require('./middleware/authMiddleware');
+
+app.get('/api/protected', authenticate, (req, res) => {
+    res.json({
+        message: 'You are authenticated',
+        user: req.user
+    });
+});
 app.use('/api/auth', authRoutes);
 
 app.get('/health', async (req, res) => {
