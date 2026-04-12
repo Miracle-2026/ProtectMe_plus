@@ -28,6 +28,8 @@ app.get('/api/protected', authenticate, (req, res) => {
     });
 });
 app.use('/api/auth', authRoutes);
+const sosRoutes = require('./routes/sosRoutes');
+app.use('/api/sos', sosRoutes);
 
 app.get('/health', async (req, res) => {
     try{
