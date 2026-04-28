@@ -4,11 +4,13 @@ const { authenticate } = require('../middleware/authMiddleware');
 const {
     triggerSOS,
     getActiveSOSEvents,
-    resolveSOSEvent
+    resolveSOSEvent,
+    logHeartbeat
 } = require('../controllers/sosController');
 
 router.post('/trigger', authenticate, triggerSOS);
 router.get('/active', authenticate, getActiveSOSEvents);
 router.patch('/:id/resolve', authenticate, resolveSOSEvent);
+router.post('/heartbeat', authenticate, logHeartbeat);
 
 module.exports = router;

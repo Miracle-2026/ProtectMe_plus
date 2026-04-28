@@ -15,6 +15,8 @@ const io = socketio(server, {
         methods: ['GET', 'POST']
     }
 });
+const socketUtil = require('./utils/socket');
+socketUtil.init(io);
 
 app.use(cors());
 app.use(express.json());
@@ -51,7 +53,13 @@ app.get('/health', async (req, res) => {
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
+    socket.on('join', (userId) => {
+        socket.join(userId);
+        console.log(`User ${userId} joined their room`);
+    });
+
     socket.on('disconnect', () => {
+        socket.join(userId);
         console.log('User disconnected:', socket.id);
     });
 });

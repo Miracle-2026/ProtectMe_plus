@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { getIO } = require('../utils/socket');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -41,6 +42,20 @@ const triggerSOS = async (req, res) => {
             LIMIT 10`,
             [userId]
         );
+        const io = getIO();
+
+        nearbyResponders.rows.forEach((responder) =>{
+            io.to(responder.id).emit('sos_alert', {
+                sosId: sosEvent.id,
+                threat_type: sosEvent.threat_type,
+                protocol: sosEvent.protocol,
+                protocol_instruction: protocol === 'OBSERVATION'
+                ? 'Threat is armed. DO NOT approach. Document evidence only.'
+                : 'Threat is unarmed. Community intervention requested.',
+                address: sosEvent.address,
+                created_at: sosEvent.created_at
+            });
+        });
 
         res.status(201).json({
             message: `SOS triggered. ${protocol} protocol activated.`,
@@ -113,4 +128,46 @@ const resolveSOSEvent = async (req, res) => {
     }
 };
 
-module.exports = { triggerSOS, getActiveSOSEvents, resolveSOSEvent };
+const logHeartbeat = async (req, res) => {
+    const { sos_event_id, latitude, longitude } = req.body;
+    const userId = req.user.userId;
+
+    try{
+        if (!sos_event_id || !latitude || !longitude) {
+            return res.status(400).json({
+                error: 'SOS event ID and location are required'
+            });
+        }
+
+        const sosCheck = await pool.query(
+            `SELECT id FROM sos_events
+            WHERE id = $1 AND user_id = $2 AND status = 'ACTIVE'`,
+            [sos_event_id, userId]
+        );
+
+        if (sosCheck.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Active SOS event not found'
+            });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO heartbeat_logs
+            (sos_event_id, user_id, location)
+            VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326))
+            RETURNING id, recorded_at`,
+            [sos_event_id, userId, longitude, latitude]
+        );
+
+        res.status(201).json({
+            message: 'Heartbeat logged',
+            heartbeat: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('heartbeat error:', error.message);
+        res.status(500).json({ error: 'Internal server error'});
+    }
+};
+
+module.exports = { triggerSOS, getActiveSOSEvents, resolveSOSEvent, logHeartbeat };
