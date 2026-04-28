@@ -73,25 +73,43 @@ const triggerSOS = async (req, res) => {
 };
 
 const getActiveSOSEvents = async (req, res) => {
+    const userId = req.user.userId;
+
     try {
         const result = await pool.query(
-            `SELECT
-            s.id,
-            s.threat_type,
-            s.protocol,
-            s.address,
-            s.status,
-            s.created_at,
-            ST_X(s.location::geometry) as longitude,
-            ST_Y(s.location::geometry) as latitude
-            FROM sos_events s
-            WHERE s.status = 'ACTIVE'
-            ORDER BY s.created_at DESC`
+            'SELECT id, user_id, threat_type, protocol, address, status, created_at, ST_X(location::geometry) as longitude, ST_Y(location::geometry) as latitude FROM sos_events WHERE status = $1 ORDER BY created_at DESC',
+            ['ACTIVE']
         );
 
-        res.json({
-            active_sos_events: result.rows
+        const events = result.rows.map(event => {
+            const isOwnSOS = event.user_id === userId;
+            if (!isOwnSOS) {
+                return {
+                    id: event.id,
+                    threat_type: event.threat_type,
+                    protocol: event.protocol,
+                    address: event.address,
+                    status: event.status,
+                    created_at: event.created_at,
+                    latitude: parseFloat(Number(event.latitude).toFixed(2)),
+                    longitude: parseFloat(Number(event.longitude).toFixed(2)),
+                    is_own_sos: false
+                };
+            }
+            return {
+                id: event.id,
+                threat_type: event.threat_type,
+                protocol: event.protocol,
+                address: event.address,
+                status: event.status,
+                created_at: event.created_at,
+                latitude: parseFloat(event.latitude),
+                longitude: parseFloat(event.longitude),
+                is_own_sos: true
+            };
         });
+
+        res.json({ active_sos_events: events });
 
     }catch (error) {
         console.error('Get SOS error:', error.message);
