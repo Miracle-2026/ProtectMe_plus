@@ -53,9 +53,21 @@ location GEOMETRY(POINT, 4326) NOT NULL,
 recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE emergency_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    contact_name VARCHAR(100) NOT NULL,
+    contact_phone VARCHAR(15) NOT NULL,
+    relationship VARCHAR(50),
+    is_primary BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, contact_phone)
+);
+
 CREATE INDEX idx_sos_events_location ON sos_events USING GIST(location);
 CREATE INDEX idx_geofences_center ON geofences USING GIST(center);
 CREATE INDEX idx_heartbeat_logs_location ON heartbeat_logs USING GIST(location);
 CREATE INDEX idx_users_phone ON users(phone_number);
 CREATE INDEX idx_sos_events_user_id ON sos_events(user_id);
 CREATE INDEX idx_sos_events_status ON sos_events(status);
+CREATE INDEX idx_emergency_contacts_user_id ON emergency_contacts(user_id);
