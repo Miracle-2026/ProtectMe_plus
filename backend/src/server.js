@@ -33,6 +33,9 @@ app.use('/api/auth', authRoutes);
 const sosRoutes = require('./routes/sosRoutes');
 app.use('/api/sos', sosRoutes);
 
+const contactsRoutes = require('./routes/contactsRoutes');
+app.use('/api/contacts', contactsRoutes);
+
 app.get('/health', async (req, res) => {
     try{
         const result = await pool.query('SELECT NOW() as time');
