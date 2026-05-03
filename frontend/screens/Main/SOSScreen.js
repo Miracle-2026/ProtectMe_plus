@@ -78,12 +78,10 @@ export default function SOSScreen({ navigation }) {
 
             const data = await Response.json();
 
-            if (Response.ok) {
+            if (response.ok) {
                 Alert.alert(
-                    'SOS Sent',
-                    data.protocol === 'OBSERVATION'
-                    ? 'ARMED THREAT DETECTED. Nearby users notified to OBSERVE ONLY. Do not approach.'
-                    : 'Help is on the way. Nearby community members have been alerted.',
+                    'SOS Sent ✓',
+                    'Your alert has been sent. Help is being notified.',
                     [{ text: 'OK', onPress: () => navigation.goBack() }]
                 );
             } else {
@@ -94,6 +92,7 @@ export default function SOSScreen({ navigation }) {
                 Alert.alert(
                     'SOS Queued',
                     'Connection failed. Your SOS has been saved and will be sent when connection is restored.'
+                    [{ text: 'OK', onPress: () => navigation.goBack() }]
                 );
         } finally {
             setLoading(false);
@@ -101,12 +100,11 @@ export default function SOSScreen({ navigation }) {
     };
 
     const confirmSOS = (threatType) => {
-        const isArmed = threatType === 'ARMED';
         Alert.alert(
-            isArmed ? 'Armed Threat' : 'Unarmed Threat',
-            isArmed
-            ? 'OBSERVATION protocol will be activated. Nearby users will be told NOT to approach. Continue?'
-            : 'INTERVENTION protocol will be activated. Nearby users will be asked to help. Continue?',
+            'Confirm SOS',
+            threatType === 'ARMED'
+            ? 'Send emergency alert for an armed threat?'
+            : 'Send emergency alert for an unarmed threat?',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -126,7 +124,7 @@ export default function SOSScreen({ navigation }) {
             {!isConnected && (
                 <View style={styles.offlineBanner}>
                      <Text style={styles.offlineText}>
-                        No internet - SOS will be queued locally
+                        ⚠️ No internet - SOS will be queued locally
                     </Text>
                 </View>    
             )}
@@ -134,33 +132,29 @@ export default function SOSScreen({ navigation }) {
             {!location && (
                 <View style={styles.locationBanner}>
                     <Text style={styles.locationText}>
-                        Acquiring your location...
+                        📍 Acquiring your location...
                     </Text>
                 </View>    
             )}
 
             {loading ? (
-                <ActivityIndicator size="large" color="#e63946" style={{ marginTop: 40 }} />
+                <ActivityIndicator size="large" color="#e63946" style={{ marginTop: 60 }} />
             ) : (
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
                     style={[styles.threatButton, styles.armedButton]}
                     onPress={() => confirmSOS('ARMED')}
                     >
+                        <Text style={styles.threatButtonIcon}>⚠️</Text>
                         <Text style={styles.threatButtonText}>YES - ARMED</Text>
-                        <Text style={styles.threatButtonSubtext}>
-                            Observation Protocol{'\n'}Do NOT approach
-                        </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                     style={[styles.threatButton, styles.unarmedButton]}
                     onPress={() => confirmSOS('UNARMED')}
                     >
+                        <Text style={styles.threatButtonIcon}>🆘</Text>
                         <Text style={styles.threatButtonText}>NO - UNARMED</Text>
-                        <Text style={styles.threatButtonSubtext}>
-                            Intervention Protocol{'\n'}Community help requested
-                        </Text>
                     </TouchableOpacity>
                 </View>    
             )}
@@ -213,13 +207,13 @@ const styles = StyleSheet.create({
     },
     buttonContainer: {
         width: '100%',
-        marginTop: 20,
+        marginTop: 30,
         gap: 16
     },
     threatButton: {
         width: '100%',
-        padding: 24,
-        borderRadius: 12,
+        padding: 30,
+        borderRadius: 16,
         alignItems: 'center'
     },
     armedButton: {
@@ -228,16 +222,13 @@ const styles = StyleSheet.create({
     unarmedButton: {
         backgroundColor: '#e63946'
     },
+    threatButtonIcon: {
+        fontSize: 40,
+        marginBottom: 10
+    },
     threatButtonText: {
         color: '#ffffff',
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 8
-    },
-    threatButtonSubtext: {
-        color: '#ffcccc',
-        fontSize: 13,
-        textAlign: 'center',
-        lineHeight: 20
+        fontSize: 22,
+        fontWeight: 'bold'
     }
 });
