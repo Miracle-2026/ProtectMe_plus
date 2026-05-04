@@ -39,6 +39,12 @@ app.use('/api/contacts', contactsRoutes);
 const geofenceRoutes = require('./routes/geofenceRoutes');
 app.use('/api/geofences', geofenceRoutes);
 
+const settingsRoutes = require('./routes/settingsRoutes');
+app.use('/api/settings', settingsRoutes);
+
+const riskRoutes = require('./routes/riskRoutes');
+app.use('/api/risk', riskRoutes);
+
 app.get('/health', async (req, res) => {
     try{
         const result = await pool.query('SELECT NOW() as time');

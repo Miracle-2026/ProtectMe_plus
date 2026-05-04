@@ -34,6 +34,16 @@ const triggerSOS = async (req, res) => {
         );
         const sosEvent = result.rows[0];
 
+        const contactsResult = await pool.query(
+            'SELECT contact_name, contact_phone FROM emergency_contacts WHERE user_id = $1 AND IS_primary = true LIMIT 1',
+            [userId]
+        );
+        
+        if (contactsResult.rows.length > 0) {
+            const primaryContact = contactsResult.rows[0];
+            console.log(`ALERT: Notifying primary contact ${primaryContact.contact_name} at ${primaryContact.contact_phone}`);
+        }
+        
         const nearbyResponders = await pool.query(
             `SELECT u.id, u.phone_number, u.full_name
             FROM users u

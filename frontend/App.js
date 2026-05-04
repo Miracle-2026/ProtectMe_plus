@@ -11,6 +11,7 @@ import SOSScreen from './screens/Main/SOSScreen';
 import MapScreen from './screens/Main/MapScreen';
 import ContactsScreen from './screens/Main/ContactsScreen';
 import GeofenceScreen from './screens/Main/GeofenceScreen';
+import SettingsScreen from './screens/Main/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,41 +41,33 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-      screenOptions={{
-        headerStyle: { backgroundColor: '#0a0a0a' },
-        headerTintColor: '#e63946',
-        headerTitleStyle: { fontWeight: 'bold' },
-        contentStyle: { backgroundColor: '#0a0a0a' }
-      }}
+        screenOptions={{
+          headerStyle: { backgroundColor: '#0a0a0a' },
+          headerTintColor: '#e63946',
+          headerTitleStyle: { fontWeight: 'bold' },
+          contentStyle: { backgroundColor: '#0a0a0a' }
+        }}
       >
         {!isLoggedIn ? (
           <>
-          <Stack.Screen
-          name="Login"
-          options={{ headerShown: false }}
-          >
-            {props => <LoginScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
+            <Stack.Screen name="Login" options={{ headerShown: false }}>
+              {props => <LoginScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
             </Stack.Screen>
-            <Stack.Screen
-            name="Register"
-            options={{ headerShown: false }}
-            >
+            <Stack.Screen name="Register" options={{ headerShown: false }}>
               {props => <RegisterScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
-              </Stack.Screen>
-              </>
+            </Stack.Screen>
+          </>
         ) : (
           <>
-          <Stack.Screen
-          name="Home"
-          options={{ headerShown: false }}
-          >
-            {props => <HomeScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
+            <Stack.Screen name="Home" options={{ headerShown: false }}>
+              {props => <HomeScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
             </Stack.Screen>
             <Stack.Screen name="SOS" component={SOSScreen} />
             <Stack.Screen name="Map" component={MapScreen} />
             <Stack.Screen name="Contacts" component={ContactsScreen} />
             <Stack.Screen name="Geofence" component={GeofenceScreen} />
-            </>
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

@@ -108,12 +108,20 @@ export default function HomeScreen({ navigation, setIsLoggedIn }) {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                style={styles.gridItem}
-                onPress={fetchRecentActivity}
-                >
-                    <Text style={styles.gridIcon}>🔄</Text>
-                    <Text style={styles.gridLabel}> Refresh Activity</Text>
-                </TouchableOpacity>
+  style={styles.gridItem}
+  onPress={() => navigation.navigate('Settings')}
+>
+  <Text style={styles.gridIcon}>⚙️</Text>
+  <Text style={styles.gridLabel}>Settings</Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+  style={styles.gridItem}
+  onPress={fetchRecentActivity}
+>
+  <Text style={styles.gridIcon}>🔄</Text>
+  <Text style={styles.gridLabel}>Refresh Activity</Text>
+</TouchableOpacity>
             </View>
 
             <View style={styles.activitySection}>
