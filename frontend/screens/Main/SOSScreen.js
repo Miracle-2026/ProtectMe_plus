@@ -6,8 +6,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { addToQueue } from '../../utils/offlineQueue';
+import { stopHeartbeat } from '../../utils/heartbeatSender';
 
 import { SERVER_URL } from '../../config';
+
 
 export default function SOSScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
@@ -78,12 +80,15 @@ export default function SOSScreen({ navigation }) {
 
             const data = await Response.json();
 
-            if (response.ok) {
-                Alert.alert(
-                    'SOS Sent ✓',
-                    'Your alert has been sent. Help is being notified.',
-                    [{ text: 'OK', onPress: () => navigation.goBack() }]
-                );
+           if (response.ok) {
+  const { startHeartbeat } = require('../../utils/heartbeatSender');
+  await startHeartbeat(data.sos.id);
+
+  Alert.alert(
+    'SOS Sent ✓',
+    'Your alert has been sent. Help is being notified. Location updates will be sent every 5 minutes.',
+    [{ text: 'OK', onPress: () => navigation.goBack() }]
+  );
             } else {
                 Alert.alert('Error', data.error);
             }

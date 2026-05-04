@@ -66,9 +66,17 @@ export default function HomeScreen({ navigation, setIsLoggedIn }) {
                     Welcome, {user && user.full_name ? user.full_name.split(' ')[0] : 'User'}
                 </Text>
              </View>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutIcon}>
-                <Text style={styles.logoutText}>⏻</Text>
-            </TouchableOpacity>
+            <View style={styles.headerIcons}>
+  <TouchableOpacity
+    onPress={() => navigation.navigate('Settings')}
+    style={styles.headerIcon}
+  >
+    <Text style={styles.headerIconText}>⚙️</Text>
+  </TouchableOpacity>
+  <TouchableOpacity onPress={handleLogout} style={styles.headerIcon}>
+    <Text style={styles.logoutText}>⏻</Text>
+  </TouchableOpacity>
+</View>
             </View>
 
             <View style={styles.sosContainer}>
@@ -314,5 +322,16 @@ const styles = StyleSheet.create({
         color: '#ffffff',
         fontSize: 10,
         fontWeight: 'bold'
-    }
+    },
+    headerIcons: {
+        flexDirection: 'row',
+        gap: 8
+},
+headerIcon: {
+    padding: 8,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#333'
+}
 });

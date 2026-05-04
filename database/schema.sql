@@ -64,6 +64,15 @@ CREATE TABLE emergency_contacts (
     UNIQUE(user_id, contact_phone)
 );
 
+CREATE TABLE user_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    wake_word VARCHAR(100) DEFAULT 'help protectme',
+    wake_word_enabled BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE INDEX idx_sos_events_location ON sos_events USING GIST(location);
 CREATE INDEX idx_geofences_center ON geofences USING GIST(center);
 CREATE INDEX idx_heartbeat_logs_location ON heartbeat_logs USING GIST(location);
@@ -71,3 +80,4 @@ CREATE INDEX idx_users_phone ON users(phone_number);
 CREATE INDEX idx_sos_events_user_id ON sos_events(user_id);
 CREATE INDEX idx_sos_events_status ON sos_events(status);
 CREATE INDEX idx_emergency_contacts_user_id ON emergency_contacts(user_id);
+CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
