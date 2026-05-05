@@ -4,6 +4,34 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+const sendSMSAlert = async (phoneNumber, contactName, threatType, address) => {
+    try {
+        const message = threatType === 'ARMED'
+        ? `PROTECTME+ ALERT: ${contactName}, someone in your network has triggered an armed threat SOS near ${address}. DO NOT approach. Contact authorities immediately.`
+        : `PROTECTME+ ALERT: ${contactName}, someone in your network needs immediate help near ${address}. Please respond if you are able.`;
+
+        const response = await fetch('https://api.ng.termii.com/api/sms/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                to: phoneNumber,
+                from: 'ProtectMe',
+                sms: message,
+                type: 'plain',
+                api_key: process.env.TERMII_API_KEY,
+                channel: 'generic'
+            })
+        });
+
+        const data = await response.json();
+        console.log('SMS sent:', data);
+        return true;
+    } catch (error) {
+        console.error('SMS error:', error.message);
+        return false;
+    }
+};
+
 const triggerSOS = async (req, res) => {
     const { threat_type, latitude, longitude, address } = req.body;
     const userId = req.user.userId;
@@ -41,7 +69,12 @@ const triggerSOS = async (req, res) => {
         
         if (contactsResult.rows.length > 0) {
             const primaryContact = contactsResult.rows[0];
-            console.log(`ALERT: Notifying primary contact ${primaryContact.contact_name} at ${primaryContact.contact_phone}`);
+            await sendSMSAlert(
+                primaryContact.contact_phone,
+                primaryContact.contact_name,
+                threat_type,
+                address || 'Location acquired via GPS'
+            );
         }
         
         const nearbyResponders = await pool.query(
@@ -198,4 +231,75 @@ const logHeartbeat = async (req, res) => {
     }
 };
 
-module.exports = { triggerSOS, getActiveSOSEvents, resolveSOSEvent, logHeartbeat };
+const respondToSOS = async (req, res) => {
+  const { sos_event_id, action } = req.body;
+  const responderId = req.user.userId;
+
+  try {
+    if (!sos_event_id || !action) {
+      return res.status(400).json({
+        error: 'SOS event ID and action are required'
+      });
+    }
+
+    if (!['ACCEPTED', 'DECLINED'].includes(action)) {
+      return res.status(400).json({
+        error: 'Action must be ACCEPTED or DECLINED'
+      });
+    }
+
+    const existing = await pool.query(
+      'SELECT id FROM responders WHERE sos_event_id = $1 AND responder_id = $2',
+      [sos_event_id, responderId]
+    );
+
+    let result;
+
+    if (existing.rows.length > 0) {
+      result = await pool.query(
+        `UPDATE responders 
+         SET status = $1, responded_at = NOW()
+         WHERE sos_event_id = $2 AND responder_id = $3
+         RETURNING *`,
+        [action, sos_event_id, responderId]
+      );
+    } else {
+      result = await pool.query(
+        `INSERT INTO responders 
+          (sos_event_id, responder_id, status, responded_at)
+         VALUES ($1, $2, $3, NOW())
+         RETURNING *`,
+        [sos_event_id, responderId, action]
+      );
+    }
+
+    if (action === 'ACCEPTED') {
+      const sosResult = await pool.query(
+        'SELECT user_id FROM sos_events WHERE id = $1',
+        [sos_event_id]
+      );
+
+      if (sosResult.rows.length > 0) {
+        const io = getIO();
+        io.to(sosResult.rows[0].user_id).emit('responder_accepted', {
+          sos_event_id,
+          responder_id: responderId,
+          message: 'A community member has accepted your SOS and is responding'
+        });
+      }
+    }
+
+    res.json({
+      message: action === 'ACCEPTED'
+        ? 'You have accepted this SOS. Please respond safely.'
+        : 'You have declined this SOS.',
+      responder: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Respond to SOS error:', error.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+module.exports = { triggerSOS, getActiveSOSEvents, resolveSOSEvent, logHeartbeat, respondToSos };

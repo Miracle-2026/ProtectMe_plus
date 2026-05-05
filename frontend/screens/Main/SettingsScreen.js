@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  TouchableOpacity, Switch, Alert, ActivityIndicator, ScrollView
+  TouchableOpacity, Alert, ActivityIndicator, ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SERVER_URL } from '../../config';
 
 export default function SettingsScreen({ navigation }) {
-  const [wakeWord, setWakeWord] = useState('help protectme');
-  const [wakeWordEnabled, setWakeWordEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState(null);
+  const [nin, setNin] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -24,22 +24,8 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const loadSettings = async () => {
-    try {
-      const token = await AsyncStorage.getItem('protectme_token');
-      const response = await fetch(`${SERVER_URL}/api/settings`, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setWakeWord(data.settings.wake_word);
-        setWakeWordEnabled(data.settings.wake_word_enabled);
-      }
-    } catch (error) {
-      console.error('Load settings error:', error.message);
-    } finally {
       setLoading(false);
-    }
-  };
+    };
 
   const saveSettings = async () => {
     setSaving(true);
@@ -74,6 +60,42 @@ export default function SettingsScreen({ navigation }) {
     );
   }
 
+  const verifyNIN = async () => {
+    if (!nin || nin.length !== 11) {
+      Alert.alert('Error', 'Please enter your 11-digit NIN');
+      return;
+    }
+    
+    setVerifying(true);
+
+    try {
+      const token = await AsyncStorage.getItem('protectme_token');
+      const response = await fetch(`${SERVER_URL}/api/auth/verify-nin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ nin })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await AsyncStorage.setItem('protectme_user', JSON.stringify(data.user));
+        setUser(data.user);
+        setNin('');
+        Alert.alert('Verified', 'Your identity has been verified successfully');
+      } else {
+        Alert.alert('Error', data.error);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not verify NIN. Check your connection.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Settings</Text>
@@ -92,35 +114,31 @@ export default function SettingsScreen({ navigation }) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Voice Activation (FR-06)</Text>
+        <Text style={styles.sectionTitle}>Panic Activation (FR-06)</Text>
         <Text style={styles.sectionSubtitle}>
-          Say your wake word to trigger SOS hands-free
+          Two discreet ways to trigger SOS without opening the app
         </Text>
 
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Enable Wake Word</Text>
-          <Switch
-            value={wakeWordEnabled}
-            onValueChange={setWakeWordEnabled}
-            trackColor={{ false: '#333', true: '#e63946' }}
-            thumbColor={wakeWordEnabled ? '#ffffff' : '#666'}
-          />
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Panic Button</Text>
+          <Text style={styles.infoValue}>Hold 1.5s on home screen</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Volume Trigger</Text>
+          <Text style={styles.infoValue}>Press volume down 3x rapidly</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Default Protocol</Text>
+          <Text style={styles.infoValue}>ARMED / OBSERVATION</Text>
         </View>
 
-        <Text style={styles.inputLabel}>Your Wake Word / Phrase</Text>
-        <TextInput
-          style={[styles.input, !wakeWordEnabled && styles.inputDisabled]}
-          value={wakeWord}
-          onChangeText={setWakeWord}
-          placeholder="e.g. help protectme"
-          placeholderTextColor="#666"
-          editable={wakeWordEnabled}
-        />
-        <Text style={styles.hint}>
-          Default: "help protectme" — Choose something natural but unique.
-          When triggered by voice, ARMED/OBSERVATION protocol activates automatically.
+        <View style={styles.hintBox}>
+        <Text style={styles.hintBoxText}>
+          Both triggers default to ARMED protocol to keep responders safe when you cannot interact with your screen.
         </Text>
+        </View>
       </View>
+          
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Security</Text>
@@ -138,16 +156,41 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.saveButton}
-        onPress={saveSettings}
-        disabled={saving}
-      >
-        {saving
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.saveButtonText}>Save Settings</Text>
-        }
-      </TouchableOpacity>
+      {!user?.is_verified && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Identity Verification (FR-01)</Text>
+          <Text style={styles.sectionSubtitle}>
+            Enter your NIN to verify your identity and unlock full community features
+          </Text>
+          <TextInput
+          style={styles.input}
+          placeholder="11-digit NIN"
+          placeholderTextColor="#666"
+          value={nin}
+          onChangeText={setNin}
+          keyboardType="number-pad"
+          maxLength={11}
+          />
+          <TouchableOpacity
+          style={styles.verifyButton}
+          onPress={verifyNIN}
+          disabled={verifying}
+          >
+            {verifying
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.verifyButtonText}>Verify Identity</Text>
+            }
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {user?.is_verified && (
+        <View style={styles.section}>
+          <View style={styles.verifiedBanner}>
+            <Text style={styles.verifiedBannerText}>✓ Identity Verified</Text>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -211,5 +254,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40
   },
-  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' }
+  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  verifyButton: {
+    backgroundColor: '#1a5c1a',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    margintop: 4
+  },
+  verifiedBanner: {
+    backgroundColor: '#1a5c1a',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center'
+  },
+  verifiedBannerText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  hintBox: {
+    backgroundColor: '#1a1a1a',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#333'
+  },
+  hintBoxText: {
+    color: '#666',
+    fontSize: 12,
+    lineHeight: 18
+  }
 });

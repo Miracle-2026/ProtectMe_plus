@@ -7,6 +7,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { addToQueue } from '../../utils/offlineQueue';
 import { stopHeartbeat } from '../../utils/heartbeatSender';
+import * as Linking from 'expo-linking';
 
 import { SERVER_URL } from '../../config';
 
@@ -81,14 +82,24 @@ export default function SOSScreen({ navigation }) {
             const data = await Response.json();
 
            if (response.ok) {
-  const { startHeartbeat } = require('../../utils/heartbeatSender');
-  await startHeartbeat(data.sos.id);
-
-  Alert.alert(
-    'SOS Sent ✓',
-    'Your alert has been sent. Help is being notified. Location updates will be sent every 5 minutes.',
-    [{ text: 'OK', onPress: () => navigation.goBack() }]
-  );
+            const { startHeartbeat } = require('../../utils/heartbeatSender');
+            await startHeartbeat(data.sos.id);
+            
+            Alert.alert(
+                'SOS Sent ✓',
+                'Your alert has been sent to nearby community members and your emergency contacts. Do you want to call emergency services (112) now?',
+                [
+                    {
+                        text:'Call 112',
+                        onPress: () => callEmergencyServices()
+                    },
+                    {
+                        text: 'No Thanks',
+                        onpress: () => navigation.goBack(),
+                        style: 'cancel'
+                    }
+                ]
+            );
             } else {
                 Alert.alert('Error', data.error);
             }
@@ -101,6 +112,14 @@ export default function SOSScreen({ navigation }) {
                 );
         } finally {
             setLoading(false);
+        }
+    };
+
+    const callEmergencyServices = async () => {
+        try {
+            await Linking.openURL('tel:112');
+        } catch (error) {
+            console.error('Call error:', error.message);
         }
     };
 

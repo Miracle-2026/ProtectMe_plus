@@ -15,8 +15,13 @@ export default function RegisterScreen({ navigation, setIsLoggedIn}) {
     const [loading, setLoading] = useState(false);
 
     const handleRegister = async () => {
-        if (!fullName || !phone  || !password) {
-            Alert.alert('Error', 'Full name, phone number and password are required');
+        if (!fullName || !phone  || !password || !nin) {
+            Alert.alert('Error', 'All fields are required');
+            return;
+        }
+
+        if (nin.length !== 11) {
+            Alert.alert('Error', 'NIN must be exactly 11 digits');
             return;
         }
 
@@ -88,11 +93,12 @@ export default function RegisterScreen({ navigation, setIsLoggedIn}) {
 
             <TextInput
             style={styles.input}
-            placeholder="NIN (Optional)"
+            placeholder="NIN (11 digits)"
             placeholderTextColor="#666"
             value={nin}
             onChangeText={setNin}
             keyboardType="number-pad"
+            maxLength={11}
             />
 
             <Text style={styles.hint}>

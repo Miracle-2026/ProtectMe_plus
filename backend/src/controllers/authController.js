@@ -10,10 +10,16 @@ const register = async (req, res) => {
     const { full_name, phone_number, password, nin } = req.body;
 
     try {
-        if (!full_name || !phone_number || !password) {
+        if (!full_name || !phone_number || !password || !nin) {
             return res.status(400).json({
-                error: 'Full name, phone number and password are required'
+                error: 'All fields including NIN are required'
             });
+        }
+
+        if (nin.toString().length !== 11) {
+            return res.status(400).json({
+                error: 'NIN must be exactly 11 digits'
+            })
         }
 
         const existingUser = await pool.query(
@@ -114,4 +120,38 @@ const register = async (req, res) => {
         }
     };
 
-    module.exports = { register, login };
+    const verifyNIN = async (req, res) => {
+        const { nin } = req.body;
+        const userId = req.user.userId;
+
+        try {
+            if (!nin || nin.toString().length !== 11) {
+                return res.status(400).json({
+                    error: 'NIN must be exactly 11 digits'
+                });
+            }
+
+            await pool.query(
+                'UPDATE users SET is_verified = true, updated_at = NOW() WHERE id = $1',
+                [userId]
+            );
+
+            const updatedUser = await pool.query(
+                'SELECT id, full_name, phone_number, is_verified FROM users WHERE id = $1',
+                [userId]
+            );
+
+            await AsyncStorage.setItem('protectme_user', JSON.stringify(updatedUser.rows[0]));
+
+            res.json({
+                message: 'Identity verified successfully',
+                user: updatedUser.rows[0]
+            });
+
+        } catch (error) {
+            console.error('Verify NIN error: ', error.message);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    };
+
+    module.exports = { register, login, verifyNIN };
