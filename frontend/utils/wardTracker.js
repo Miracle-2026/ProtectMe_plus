@@ -95,7 +95,9 @@ export const startWardTracking = async () => {
             notificationTitle: "ProtectMe+ Safe Zone",
             notificationBody: "Location shared with your Guardian.",
             notificationColor: "#e63946"
-        }
+        },
+        stopOnTerminate: false, 
+        startOnBoot: true, 
     });
 
     return true;

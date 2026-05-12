@@ -27,12 +27,13 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "FOREGROUND_SERVICE_LOCATION",
+        "FOREGROUND_SERVICE_DATA_SYNC",
+        "RECEIVE_BOOT_COMPLETED"
       ],
       "config": {
         "googleMaps": {
-          "apiKey":
-          "AIzaSyDd474Q8YFTf9ZD6CXzh1qcVCkjzaF9qJE"
+          "apiKey": "AIzaSyDd474Q8YFTf9ZD6CXzh1qcVCkjzaF9qJE"
         }
       }
     },
