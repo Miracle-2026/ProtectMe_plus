@@ -47,7 +47,8 @@ export default function RegisterScreen({ navigation, setIsLoggedIn}) {
             const data = await response.json();
 
             if (response.ok) {
-                await AsyncStorage.setItem('potectme_token', data.token);
+                await AsyncStorage.setItem('protectme_token', data.token);
+                await AsyncStorage.setItem('protectme_refresh_token', data.refresh_token);
                 await AsyncStorage.setItem('protectme_user', JSON.stringify(data.user));
                 setIsLoggedIn(true);
             } else {
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 36,
-        fongtWeight: 'bold',
+        fontWeight: 'bold',
         color: '#e63946',
         marginBottom: 8
     },

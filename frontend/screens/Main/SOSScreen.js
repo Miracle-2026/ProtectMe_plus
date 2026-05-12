@@ -27,7 +27,7 @@ export default function SOSScreen({ navigation }) {
 
     const getLocation = async () => {
         try {
-            const { status } = await Location.requestForegroundPermissionAsync();
+            const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
                 Alert.alert('Permission Denied', 'Location access is required for SOS');
                 return;
@@ -62,15 +62,15 @@ export default function SOSScreen({ navigation }) {
             await addToQueue(sosPayload);
             Alert.alert(
                 'SOS Queued',
-                'No internet connection. Yor SOS has been saved and will be sent automatically when connection is restored.',
+                'No internet connection. Your SOS has been saved and will be sent automatically when connection is restored.',
                 [{ text: 'OK', onPress: () => navigation.goBack() }]
             );
             setLoading(false);
             return;
         }
 
-        try{
-            const reponse = await fetch(`${SERVER_URL}/api/sos/trigger`, {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/sos/trigger`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -79,37 +79,37 @@ export default function SOSScreen({ navigation }) {
                 body: JSON.stringify(sosPayload)
             });
 
-            const data = await Response.json();
+            const data = await response.json();
 
-           if (response.ok) {
-            const { startHeartbeat } = require('../../utils/heartbeatSender');
-            await startHeartbeat(data.sos.id);
-            
-            Alert.alert(
-                'SOS Sent ✓',
-                'Your alert has been sent to nearby community members and your emergency contacts. Do you want to call emergency services (112) now?',
-                [
-                    {
-                        text:'Call 112',
-                        onPress: () => callEmergencyServices()
-                    },
-                    {
-                        text: 'No Thanks',
-                        onpress: () => navigation.goBack(),
-                        style: 'cancel'
-                    }
-                ]
-            );
+            if (response.ok) {
+                const { startHeartbeat } = require('../../utils/heartbeatSender');
+                await startHeartbeat(data.sos.id);
+                
+                Alert.alert(
+                    'SOS Sent ✓',
+                    'Your alert has been sent to nearby community members and your emergency contacts. Do you want to call emergency services (112) now?',
+                    [
+                        {
+                            text: 'Call 112',
+                            onPress: () => callEmergencyServices()
+                        },
+                        {
+                            text: 'No Thanks',
+                            onPress: () => navigation.goBack(),
+                            style: 'cancel'
+                        }
+                    ]
+                );
             } else {
                 Alert.alert('Error', data.error);
             }
         } catch (error) {
             await addToQueue(sosPayload);
-                Alert.alert(
-                    'SOS Queued',
-                    'Connection failed. Your SOS has been saved and will be sent when connection is restored.'
-                    [{ text: 'OK', onPress: () => navigation.goBack() }]
-                );
+            Alert.alert(
+                'SOS Queued',
+                'Connection failed. Your SOS has been saved and will be sent when connection is restored.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
         } finally {
             setLoading(false);
         }

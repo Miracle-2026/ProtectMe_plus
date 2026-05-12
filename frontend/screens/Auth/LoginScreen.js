@@ -12,7 +12,7 @@ export default function LoginScreen({ navigation, setIsLoggedIn }) {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleLogin = async () => {
+   const handleLogin = async () => {
         if (!phone || !password) {
             Alert.alert('Error', 'Please enter your phone number and password');
             return;
@@ -34,6 +34,7 @@ export default function LoginScreen({ navigation, setIsLoggedIn }) {
 
             if (response.ok) {
                 await AsyncStorage.setItem('protectme_token', data.token);
+                await AsyncStorage.setItem('protectme_refresh_token', data.refresh_token); 
                 await AsyncStorage.setItem('protectme_user', JSON.stringify(data.user));
                 setIsLoggedIn(true);
             } else {

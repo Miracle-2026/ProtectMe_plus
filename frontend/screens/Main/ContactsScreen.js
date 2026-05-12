@@ -19,7 +19,7 @@ export default function ContactsScreen() {
     const fetchContacts = async () => {
         try {
             const token = await AsyncStorage.getItem('protectme_token');
-            const response = await fetch(`${SERVER_URL}/api/ccontacts`, {
+            const response = await fetch(`${SERVER_URL}/api/contacts`, {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             const data = await response.json();
@@ -47,7 +47,7 @@ export default function ContactsScreen() {
                 body: JSON.stringify({
                     contact_name: name,
                     contact_phone: phone,
-                    relatonship,
+                    relationship,
                     is_primary: isPrimary
                 })
             });
@@ -108,7 +108,7 @@ return (
                 <TextInput
                 style={styles.input}
                 placeholder="Full Name"
-                placeeholderTextColor="#666"
+                placeholderTextColor="#666"
                 value={name}
                 onChangeText={setName}
                 />
@@ -121,7 +121,7 @@ return (
                 keyboardType="phone-pad"
                 />
                 <TextInput
-                syle={styles.input}
+                style={styles.input}
                 placeholder="Relationship (e.g. Father)"
                 placeholderTextColor="#666"
                 value={relationship}
@@ -198,7 +198,7 @@ return (
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0a0a0a', padding: 20 },
-    loadingContainer: { flex: 1, backgrounColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center' },
+    loadingContainer: { flex: 1, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center' },
     title: { fontSize: 24, fontWeight: 'bold', color: '#e63946', marginBottom: 20, marginTop: 10 },
     addButton: {
         backgroundColor: '#1a1a1a',

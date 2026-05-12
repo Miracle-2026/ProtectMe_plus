@@ -63,7 +63,7 @@ const triggerSOS = async (req, res) => {
         const sosEvent = result.rows[0];
 
         const contactsResult = await pool.query(
-            'SELECT contact_name, contact_phone FROM emergency_contacts WHERE user_id = $1 AND IS_primary = true LIMIT 1',
+            'SELECT contact_name, contact_phone FROM emergency_contacts WHERE user_id = $1 AND is_primary = true LIMIT 1',
             [userId]
         );
         
@@ -74,17 +74,12 @@ const triggerSOS = async (req, res) => {
                 primaryContact.contact_name,
                 threat_type,
                 address || 'Location acquired via GPS'
-            );
+            ).catch(err => console.error('Background SMS failure:', err));
         }
         
-        const nearbyResponders = await pool.query(
-            `SELECT u.id, u.phone_number, u.full_name
-            FROM users u
-            WHERE u.id != $1
-            AND u.is_active = true
-            LIMIT 10`,
-            [userId]
-        );
+       const nearbyResponders = await pool.query( `SELECT u.id, u.phone_number, u.full_name FROM users u WHERE u.id != $1 AND u.is_active = true AND ST_DWithin(u.last_known_location::geography, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, 5000) LIMIT 20`,
+        [userId, longitude, latitude]
+    );
         const io = getIO();
 
         nearbyResponders.rows.forEach((responder) =>{
@@ -117,11 +112,25 @@ const triggerSOS = async (req, res) => {
 
 const getActiveSOSEvents = async (req, res) => {
     const userId = req.user.userId;
+    const { user_lat, user_lon } = req.query;
+
+    if (!user_lat || !user_lon) {
+        return res.status(400).json({ error: 'User location required to find nearby events.' });
+    }
 
     try {
         const result = await pool.query(
-            'SELECT id, user_id, threat_type, protocol, address, status, created_at, ST_X(location::geometry) as longitude, ST_Y(location::geometry) as latitude FROM sos_events WHERE status = $1 ORDER BY created_at DESC',
-            ['ACTIVE']
+            `SELECT id, user_id, threat_type, protocol, address, status, created_at, 
+            ST_X(location::geometry) as longitude, ST_Y(location::geometry) as latitude 
+            FROM sos_events 
+            WHERE status = $1 
+            AND ST_DWithin(
+                location::geography, 
+                ST_SetSRID(sendST_MakePoint($2, $3), 4326)::geography, 
+                10000 -- 10km radius
+            )
+            ORDER BY created_at DESC`,
+            ['ACTIVE', user_lon, user_lat]
         );
 
         const events = result.rows.map(event => {
@@ -302,4 +311,4 @@ const respondToSOS = async (req, res) => {
   }
 };
 
-module.exports = { triggerSOS, getActiveSOSEvents, resolveSOSEvent, logHeartbeat, respondToSos };
+module.exports = { triggerSOS, getActiveSOSEvents, resolveSOSEvent, logHeartbeat, respondToSOS };

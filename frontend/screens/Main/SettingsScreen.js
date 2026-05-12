@@ -124,10 +124,6 @@ export default function SettingsScreen({ navigation }) {
           <Text style={styles.infoValue}>Hold 1.5s on home screen</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Volume Trigger</Text>
-          <Text style={styles.infoValue}>Press volume down 3x rapidly</Text>
-        </View>
-        <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Default Protocol</Text>
           <Text style={styles.infoValue}>ARMED / OBSERVATION</Text>
         </View>
@@ -196,94 +192,25 @@ export default function SettingsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a', padding: 20 },
-  loadingContainer: { flex: 1, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#e63946', marginBottom: 24, marginTop: 10 },
-  section: { marginBottom: 28 },
-  sectionTitle: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginBottom: 6 },
-  sectionSubtitle: { color: '#666', fontSize: 13, marginBottom: 14 },
-  profileCard: {
-    backgroundColor: '#1a1a1a',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#333'
-  },
-  profileName: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
-  profilePhone: { color: '#aaa', fontSize: 14, marginTop: 4 },
-  verificationBadge: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#333', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  verificationText: { color: '#aaa', fontSize: 12 },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#333'
-  },
-  toggleLabel: { color: '#ffffff', fontSize: 15 },
-  inputLabel: { color: '#aaa', fontSize: 13, marginBottom: 8 },
-  input: {
-    backgroundColor: '#1a1a1a',
-    color: '#ffffff',
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#333',
-    fontSize: 15,
-    marginBottom: 10
-  },
-  inputDisabled: { opacity: 0.4 },
-  hint: { color: '#555', fontSize: 12, lineHeight: 18 },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a'
-  },
-  infoLabel: { color: '#aaa', fontSize: 14 },
-  infoValue: { color: '#e63946', fontSize: 14, fontWeight: 'bold' },
-  saveButton: {
-    backgroundColor: '#e63946',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 40
-  },
-  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-  verifyButton: {
-    backgroundColor: '#1a5c1a',
-    padding: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    margintop: 4
-  },
-  verifiedBanner: {
-    backgroundColor: '#1a5c1a',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center'
-  },
-  verifiedBannerText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold'
-  },
-  hintBox: {
-    backgroundColor: '#1a1a1a',
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#333'
-  },
-  hintBoxText: {
-    color: '#666',
-    fontSize: 12,
-    lineHeight: 18
-  }
+  container: { flex: 1, backgroundColor: '#050505', paddingHorizontal: 20 },
+  loadingContainer: { flex: 1, backgroundColor: '#050505', justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 32, fontWeight: '900', color: '#ffffff', marginBottom: 30, marginTop: 50, letterSpacing: 0.5 },
+  section: { marginBottom: 35 },
+  sectionTitle: { color: '#e63946', fontSize: 14, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 },
+  sectionSubtitle: { color: '#888', fontSize: 13, marginBottom: 16, lineHeight: 20 },
+  profileCard: { backgroundColor: '#121212', padding: 20, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#e63946', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  profileName: { color: '#ffffff', fontSize: 22, fontWeight: 'bold', marginBottom: 4 },
+  profilePhone: { color: '#888', fontSize: 15, fontWeight: '500' },
+  verificationBadge: { marginTop: 16, alignSelf: 'flex-start', backgroundColor: 'rgba(26, 92, 26, 0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#1a5c1a' },
+  verificationText: { color: '#4ade80', fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 },
+  input: { backgroundColor: '#121212', color: '#ffffff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#222', fontSize: 16, marginBottom: 16 },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#121212', padding: 16, borderRadius: 12, marginBottom: 8 },
+  infoLabel: { color: '#aaa', fontSize: 15, fontWeight: '500' },
+  infoValue: { color: '#ffffff', fontSize: 15, fontWeight: 'bold' },
+  verifyButton: { backgroundColor: '#e63946', padding: 16, borderRadius: 12, alignItems: 'center', shadowColor: '#e63946', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
+  verifyButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5 },
+  verifiedBanner: { backgroundColor: 'rgba(26, 92, 26, 0.15)', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#1a5c1a' },
+  verifiedBannerText: { color: '#4ade80', fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5 },
+  hintBox: { backgroundColor: 'rgba(230, 57, 70, 0.1)', padding: 16, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(230, 57, 70, 0.3)' },
+  hintBoxText: { color: '#ffb3b3', fontSize: 13, lineHeight: 20, fontWeight: '500' }
 });

@@ -1,56 +1,65 @@
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 CREATE TABLE users(
-id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-phone_number VARCHAR(15) UNIQUE NOT NULL,
-password_hash VARCHAR(255) NOT NULL,
-nin_encrypted TEXT,
-full_name VARCHAR(100) NOT NULL,
-is_verified BOOLEAN DEFAULT FALSE,
-is_active BOOLEAN DEFAULT TRUE,
-role VARCHAR(20) DEFAULT 'user',
-created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    phone_number VARCHAR(15) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    nin_encrypted TEXT,
+    full_name VARCHAR(100) NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    role VARCHAR(20) DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE sos_events (
-id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-threat_type VARCHAR(20) NOT NULL CHECK (threat_type IN ('ARMED', 'UNARMED')),
-protocol VARCHAR(25) NOT NULL CHECK (protocol IN ('OBSERVATION', 'INTERVENTION')),
-location GEOMETRY(POINT, 4326) NOT NULL,
-address TEXT,
-status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'RESOLVED', 'CANCELLED')),
-evidence_urls TEXT[],
-created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-resolved_at TIMESTAMP WITH TIME ZONE
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    threat_type VARCHAR(20) NOT NULL CHECK (threat_type IN ('ARMED', 'UNARMED')),
+    protocol VARCHAR(25) NOT NULL CHECK (protocol IN ('OBSERVATION', 'INTERVENTION')),
+    location GEOMETRY(POINT, 4326),
+    address TEXT,
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'RESOLVED', 'CANCELLED')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    resolved_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE sos_evidence (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sos_event_id UUID NOT NULL REFERENCES sos_events(id) ON DELETE CASCADE,
+    file_url TEXT NOT NULL,
+    media_type VARCHAR(50) NOT NULL, 
+    captured_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE responders (
-id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-sos_event_id UUID NOT NULL REFERENCES sos_events(id) ON DELETE CASCADE,
-responder_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-status VARCHAR(20) DEFAULT 'NOTIFIED' CHECK (status IN ('NOTIFIED', 'ACCEPTED', 'DECLINED', 'ARRIVED')),
-notified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-responded_at TIMESTAMP WITH TIME ZONE,
-UNIQUE (sos_event_id, responder_id)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sos_event_id UUID NOT NULL REFERENCES sos_events(id) ON DELETE CASCADE,
+    responder_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'NOTIFIED' CHECK (status IN ('NOTIFIED', 'ACCEPTED', 'DECLINED', 'ARRIVED')),
+    notified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    responded_at TIMESTAMP WITH TIME ZONE,
+    UNIQUE (sos_event_id, responder_id)
 );
 
 CREATE TABLE geofences (
-id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-guardian_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-ward_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-name VARCHAR(100) NOT NULL,
-center GEOMETRY(POINT, 4326) NOT NULL,
-radius_meters INTEGER NOT NULL,
-is_active BOOLEAN DEFAULT TRUE,
-created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    guardian_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ward_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    center GEOMETRY(POINT, 4326) NOT NULL,
+    radius_meters INTEGER NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE heartbeat_logs (
-id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-sos_event_id UUID NOT NULL REFERENCES sos_events(id) ON DELETE CASCADE,
-user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-location GEOMETRY(POINT, 4326) NOT NULL,
-recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sos_event_id UUID REFERENCES sos_events(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    location GEOMETRY(POINT, 4326) NOT NULL,
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE emergency_contacts (
@@ -81,3 +90,4 @@ CREATE INDEX idx_sos_events_user_id ON sos_events(user_id);
 CREATE INDEX idx_sos_events_status ON sos_events(status);
 CREATE INDEX idx_emergency_contacts_user_id ON emergency_contacts(user_id);
 CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
+CREATE INDEX idx_sos_evidence_event_id ON sos_evidence(sos_event_id);

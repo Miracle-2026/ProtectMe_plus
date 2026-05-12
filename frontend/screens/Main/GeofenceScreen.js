@@ -10,7 +10,6 @@ export default function GeofenceScreen() {
     const [adding, setAdding] = useState(false);
     const [name, setName] = useState('');
     const [radius, setRadius] = useState('200');
-    const [wardId, setWardId] = useState('');
     const [location, setLocation] = useState(null);
 
     useEffect(() => {
@@ -45,8 +44,8 @@ export default function GeofenceScreen() {
     };
 
     const createGeofence = async () => {
-        if (!name || !wardId) {
-            Alert.alert('Error', 'Zone name and Ward ID are required');
+        if (!name) {
+            Alert.alert('Error', 'Zone name is required');
             return;
         }
         if (!location) {
@@ -66,7 +65,6 @@ export default function GeofenceScreen() {
                     'Authorization': 'Bearer ' + token
                 },
                 body: JSON.stringify({
-                    ward_id: wardId,
                     name,
                     latitude: location.latitude,
                     longitude: location.longitude,
@@ -77,7 +75,6 @@ export default function GeofenceScreen() {
             if (response.ok) {
                 setGeofences([data.geofence, ...geofences]);
                 setName('');
-                setWardId('');
                 setRadius('200');
                 setAdding(false);
                 Alert.alert('Success', 'Safe zone created successfully');
@@ -137,13 +134,6 @@ export default function GeofenceScreen() {
                     value={name}
                     onChangeText={setName}
                     />
-                    <TextInput
-                    style={styles.input}
-                    placeholder="Ward's User ID"
-                    placeholderTextColor="#666"
-                    value={wardId}
-                    onChangeText={setWardID}
-                    />
                       <TextInput
                     style={styles.input}
                     placeholder="Radius in metres (min 50)"
@@ -175,7 +165,7 @@ export default function GeofenceScreen() {
                 style={styles.addButton}
                 onPress={() => setAdding(true)}
                 >
-                    <Text style={styles.addbuttonText}>+ Create Safe Zone</Text>
+                    <Text style={styles.addButtonText}>+ Create Safe Zone</Text>
                 </TouchableOpacity>
             )}
 
@@ -249,9 +239,9 @@ const styles = StyleSheet.create({
         borderColor: '#333',
         fontSize: 15
     },
-    locationHunt: { color: '#666', fontSize: 12, marginBottom: 12, textAlign: 'center', },
+    locationHint: { color: '#666', fontSize: 12, marginBottom: 12, textAlign: 'center', },
     formButtons: { flexDirection: 'row', gap: 10 },
-    formbutton: { flex: 1, padding: 12, borderRadius: 8, alignitems: 'center' },
+    formButton: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
     cancelButton: { backgroundColor: '#333' },
     saveButton: { backgroundColor: '#e63946' },
     formButtonText: { color: '#ffffff', fontWeight: 'bold' },

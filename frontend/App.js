@@ -1,3 +1,4 @@
+import './utils/wardTracker'
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -12,6 +13,7 @@ import MapScreen from './screens/Main/MapScreen';
 import ContactsScreen from './screens/Main/ContactsScreen';
 import GeofenceScreen from './screens/Main/GeofenceScreen';
 import SettingsScreen from './screens/Main/SettingsScreen';
+import PairingScreen from './screens/Main/PairingScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -67,6 +69,7 @@ export default function App() {
             <Stack.Screen name="Contacts" component={ContactsScreen} />
             <Stack.Screen name="Geofence" component={GeofenceScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="Pairing" component={PairingScreen} />
           </>
         )}
       </Stack.Navigator>

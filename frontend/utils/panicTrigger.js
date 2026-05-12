@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SERVER_URL } from '../config';
 import { addToQueue } from './offlineQueue';
+import * as Location from 'expo-location';
 
 export const triggerPanicSOS = async (latitude, longitude) => {
   try {

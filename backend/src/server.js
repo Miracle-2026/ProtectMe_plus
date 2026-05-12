@@ -5,6 +5,9 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const pool = require('./config/database');
 
+// 1. THE IMPORT
+const { startHeartbeatReaper } = require('./controllers/wardController');
+
 dotenv.config();
 
 const app = express();
@@ -20,6 +23,12 @@ socketUtil.init(io);
 
 app.use(cors());
 app.use(express.json());
+
+app.use((req, res, next) => {
+    console.log(`[NETWORK INTERCEPT] ${req.method} ${req.originalUrl}`);
+    next();
+});
+
 const authRoutes = require('./routes/authRoutes');
 const { authenticate } = require('./middleware/authMiddleware');
 
@@ -30,6 +39,7 @@ app.get('/api/protected', authenticate, (req, res) => {
     });
 });
 app.use('/api/auth', authRoutes);
+
 const sosRoutes = require('./routes/sosRoutes');
 app.use('/api/sos', sosRoutes);
 
@@ -50,9 +60,9 @@ app.get('/health', async (req, res) => {
         const result = await pool.query('SELECT NOW() as time');
         res.json({
             status: 'ProtectMe+ server is alive',
-        database: 'connected',
-    time: result.rows[0].time
-});
+            database: 'connected',
+            time: result.rows[0].time
+        });
     } catch (error) {
         res.status(500).json({
             status:'server alive',
@@ -71,13 +81,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        socket.join(userId);
         console.log('User disconnected:', socket.id);
     });
 });
 
 const PORT = process.env.PORT || 5001;
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`ProtectMe+ server running on port ${PORT}`);
+    
+    // 2. THE IGNITION
+    startHeartbeatReaper(); 
 });

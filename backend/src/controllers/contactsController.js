@@ -1,17 +1,37 @@
 const pool = require('../config/database');
 
+const MAX_CONTACTS = 5;
+
 const addContact = async (req, res) => {
     const { contact_name, contact_phone, relationship, is_primary } = req.body;
     const userId = req.user.userId;
 
-    try{
+    try {
         if (!contact_name || !contact_phone) {
             return res.status(400).json({
                 error: 'Contact name and phone number are required'
             });
         }
 
-        if (is_primary === true) {
+        const countResult = await pool.query(
+            'SELECT COUNT(*) FROM emergency_contacts WHERE user_id = $1',
+            [userId]
+        );
+        
+        const currentCount = parseInt(countResult.rows[0].count, 10);
+
+        if (currentCount >= MAX_CONTACTS) {
+            return res.status(403).json({
+                error: `You cannot add more than ${MAX_CONTACTS} emergency contacts.`
+            });
+        }
+
+        let makePrimary = is_primary;
+        if (currentCount === 0) {
+            makePrimary = true;
+        }
+
+        if (makePrimary === true) {
             await pool.query(
                 `UPDATE emergency_contacts SET is_primary = FALSE WHERE user_id = $1`,
                 [userId]
@@ -23,7 +43,7 @@ const addContact = async (req, res) => {
             (user_id, contact_name, contact_phone, relationship, is_primary)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *`,
-            [userId, contact_name, contact_phone, relationship, is_primary || false]
+            [userId, contact_name, contact_phone, relationship, makePrimary || false]
         );
 
         res.status(201).json({
@@ -65,7 +85,7 @@ const deleteContact = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    try{
+    try {
         const result = await pool.query(
             `DELETE FROM emergency_contacts
             WHERE id = $1 AND user_id = $2
