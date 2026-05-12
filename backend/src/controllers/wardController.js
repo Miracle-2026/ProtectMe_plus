@@ -1,10 +1,23 @@
 const pool = require('../config/database');
 const crypto = require('crypto');
 const { getIO } = require('../utils/socket');
+
 const breachCache = new Map(); 
 const heartbeatCache = new Map();
 const ALERT_COOLDOWN_MS = 60000;
-const FLATLINE_THRESHOLD_MS = 180000
+const FLATLINE_THRESHOLD_MS = 180000;
+
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // meters
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2-lat1) * Math.PI/180;
+    const Δλ = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+};
 
 const generatePairingCode = async (req, res) => {
     const guardianId = req.user.userId;
@@ -57,22 +70,39 @@ const updateWardTelemetry = async (req, res) => {
     const { latitude, longitude } = req.body;
     const wardId = req.user.userId;
 
-    if (!heartbeatCache.has(wardId)) {
-        const gw = await pool.query('SELECT guardian_id FROM guardian_wards WHERE ward_id = $1 LIMIT 1', [wardId]);
-        if (gw.rows.length > 0) {
-            heartbeatCache.set(wardId, { guardianId: gw.rows[0].guardian_id, lastSeen: Date.now(), alerted: false });
-        }
-    } else {
-        const cacheData = heartbeatCache.get(wardId);
-        cacheData.lastSeen = Date.now();
-        if (cacheData.alerted) {
-            console.log(`💚 [SIGNAL RESTORED] Ward ${wardId} is back online.`);
-            cacheData.alerted = false; 
-        }
-        heartbeatCache.set(wardId, cacheData);
-    
-
     try {
+        const lastPos = await pool.query('SELECT last_lat, last_lng, updated_at FROM ward_lkl WHERE ward_id = $1', [wardId]);
+        
+        if (lastPos.rows.length > 0) {
+            const dist = calculateDistance(lastPos.rows[0].last_lat, lastPos.rows[0].last_lng, latitude, longitude);
+            const timeDiff = (Date.now() - new Date(lastPos.rows[0].updated_at)) / 1000;
+
+            if (timeDiff > 0 && dist / timeDiff > 80) { 
+                console.warn(`🚨 [ANTI-SPOOF] Rejected anomaly for Ward ${wardId}`);
+                return res.status(403).json({ error: "Location anomaly detected." });
+            }
+        }
+
+        await pool.query(
+            'INSERT INTO ward_lkl (ward_id, last_lat, last_lng, updated_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (ward_id) DO UPDATE SET last_lat=$2, last_lng=$3, updated_at=NOW()',
+            [wardId, latitude, longitude]
+        );
+
+        if (!heartbeatCache.has(wardId)) {
+            const gw = await pool.query('SELECT guardian_id FROM guardian_wards WHERE ward_id = $1 LIMIT 1', [wardId]);
+            if (gw.rows.length > 0) {
+                heartbeatCache.set(wardId, { guardianId: gw.rows[0].guardian_id, lastSeen: Date.now(), alerted: false });
+            }
+        } else {
+            const cacheData = heartbeatCache.get(wardId);
+            cacheData.lastSeen = Date.now();
+            if (cacheData.alerted) {
+                console.log(`💚 [SIGNAL RESTORED] Ward ${wardId} is back online.`);
+                cacheData.alerted = false; 
+            }
+            heartbeatCache.set(wardId, cacheData);
+        }
+
         const result = await pool.query(
             `SELECT id, name, radius_meters, guardian_id,
             ST_Distance(center::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance_meters
@@ -82,22 +112,19 @@ const updateWardTelemetry = async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            console.log(`[TELEMETRY] Ping received. But no active Safe Zones found for Ward ${wardId}.`);
+
             return res.status(200).send();
         }
 
         const activeGeofence = result.rows[0];
         const distance = Math.round(activeGeofence.distance_meters);
-        
-        console.log(`\n🚨 [MATH] Ward is ${distance} meters from Safe Zone '${activeGeofence.name}' (Radius: ${activeGeofence.radius_meters}m)`);
-
+ 
         if (distance > activeGeofence.radius_meters) {
             const lastAlertTime = breachCache.get(wardId);
             const now = Date.now();
 
             if (!lastAlertTime || (now - lastAlertTime) > ALERT_COOLDOWN_MS) {
-                console.log(`🚨 [BREACH DETECTED] Firing Socket Alert!`);
-                
+        
                 const io = getIO();
                 io.to(activeGeofence.guardian_id).emit('geofence_breach', {
                     ward_id: wardId,
@@ -106,13 +133,11 @@ const updateWardTelemetry = async (req, res) => {
                     message: `ALERT: Ward has left the safe zone: ${activeGeofence.name}`
                 });
 
-                breachCache.set(wardId, now); 
-            } else {
-                const secondsLeft = Math.round((ALERT_COOLDOWN_MS - (now - lastAlertTime)) / 1000);
-                console.log(`⏳ [THROTTLED] Ward is out of bounds, but alert is on cooldown. Next alert in ${secondsLeft}s.`);
+                breachCache.set(wardId, now);
+
             }
         } else {
-             console.log(`✅ [SAFE] Ward is inside the zone. Clearing alarm cache.`);
+
              breachCache.delete(wardId); 
         }
 
@@ -122,29 +147,27 @@ const updateWardTelemetry = async (req, res) => {
         console.error('Telemetry processing error:', error.message);
         res.status(500).send();
     }
-}
 };
 
 const startHeartbeatReaper = () => {
     console.log("💀 Dead Man's Switch: Armed.");
-    
+
     setInterval(() => {
         const now = Date.now();
         for (const [wardId, data] of heartbeatCache.entries()) {
             if ((now - data.lastSeen > FLATLINE_THRESHOLD_MS) && !data.alerted) {
-                console.log(`\n🚨 [FLATLINE DETECTED] Ward ${wardId} has been offline for > 3 minutes!`);
-                
+                console.log(`\n🚨 [FLATLINE DETECTED] Ward ${wardId} offline!`);
                 const io = getIO();
                 io.to(data.guardianId).emit('signal_lost', {
                     ward_id: wardId,
-                    message: 'CRITICAL: Communication with Ward device lost. Last known location is compromised.'
+                    message: 'CRITICAL: Communication with Ward device lost.'
                 });
                 
                 data.alerted = true;
                 heartbeatCache.set(wardId, data);
             }
         }
-    }, 30000); // The Reaper sweeps the cache every 30 seconds
+    }, 30000);
 };
 
 module.exports = { generatePairingCode, linkWard, updateWardTelemetry, startHeartbeatReaper };

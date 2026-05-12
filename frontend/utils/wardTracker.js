@@ -5,76 +5,70 @@ import { SERVER_URL } from '../config';
 
 const WARD_TRACKING_TASK = 'BACKGROUND_WARD_TRACKING';
 
-TTaskManager.defineTask(WARD_TRACKING_TASK, async ({ data, error }) => {
-    console.log("🚨 [TRACKER] TASK WOKE UP");
-    
+export const setTrackingMode = async (isEmergency) => {
+    const interval = isEmergency ? 10000 : 300000; 
+    await Location.startLocationUpdatesAsync(WARD_TRACKING_TASK, {
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: interval,
+        distanceInterval: isEmergency ? 0 : 20,
+        startOnBoot: true,
+        stopOnTerminate: false,
+        foregroundService: {
+            notificationTitle: "ProtectMe+ Active",
+            notificationBody: isEmergency ? "High-priority tracking active." : "Guardian monitoring active.",
+            notificationColor: "#e63946"
+        }
+    });
+};
+
+TaskManager.defineTask(WARD_TRACKING_TASK, async ({ data, error }) => {
     if (error) {
-        console.error('🚨 [TRACKER] FATAL ERROR:', error.message);
+        console.error('🚨 [TRACKER] TASK ERROR:', error.message);
         return;
     }
     
     if (data) {
         const { locations } = data;
-        const location = locations[0];
-        console.log("🚨 [TRACKER] GOT GPS:", location.coords.latitude, location.coords.longitude);
+        const { latitude, longitude } = locations[0].coords;
 
         try {
             let token = await AsyncStorage.getItem('protectme_token');
             const refreshToken = await AsyncStorage.getItem('protectme_refresh_token');
-            
-            console.log(`🚨 [TRACKER] TOKENS -> ACCESS: ${!!token} | REFRESH: ${!!refreshToken}`);
-            
-            if (!token) {
-                console.log("🚨 [TRACKER] ABORT: No token found in AsyncStorage.");
-                return;
-            }
-
+ 
             const sendTelemetry = async (currentToken) => {
                 return await fetch(`${SERVER_URL}/api/geofences/ward/telemetry`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + currentToken
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${currentToken}` 
                     },
-                    body: JSON.stringify({
-                        latitude: location.coords.latitude,
-                        longitude: location.coords.longitude
-                    })
+                    body: JSON.stringify({ latitude, longitude })
                 });
             };
-            
+
             let response = await sendTelemetry(token);
 
-            if (response.status === 401) {
-                if (refreshToken) {
-                    console.log("⚠️ [TRACKER] Access token dead. Attempting silent refresh...");
-                    
-                    const refreshRes = await fetch(`${SERVER_URL}/api/auth/refresh`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ refresh_token: refreshToken })
-                    });
+            if (response.status === 401 && refreshToken) {
+                console.log("⚠️ [TRACKER] Token expired. Attempting silent refresh...");
+                
+                const refreshRes = await fetch(`${SERVER_URL}/api/auth/refresh`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: refreshToken })
+                });
 
-                    if (refreshRes.ok) {
-                        const authData = await refreshRes.json();
-                        token = authData.token;
-                        
-                        await AsyncStorage.setItem('protectme_token', token); 
-                        console.log("✅ [TRACKER] Silent refresh successful. Retrying telemetry...");
-                        
-                        response = await sendTelemetry(token);
-                    } else {
-                        console.log("❌ [TRACKER] Refresh API rejected the refresh token.");
-                    }
-                } else {
-                    console.log("❌ [TRACKER] 401 Hit, but NO refresh token exists in memory!");
+                if (refreshRes.ok) {
+                    const authData = await refreshRes.json();
+                    const newToken = authData.token;
+                    
+                    await AsyncStorage.setItem('protectme_token', newToken); 
+                    console.log("✅ [TRACKER] Refresh successful. Retrying telemetry...");
+                    
+                    await sendTelemetry(newToken);
                 }
             }
-
-            console.log("🚨 [TRACKER] BACKEND RESPONDED WITH STATUS:", response.status);
-            
         } catch (err) {
-            console.error('🚨 [TRACKER] FETCH CRASHED:', err.message);
+            console.error('🚨 [TRACKER] Background sync failed:', err.message);
         }
     }
 });
@@ -86,19 +80,6 @@ export const startWardTracking = async () => {
     const { status: background } = await Location.requestBackgroundPermissionsAsync();
     if (background !== 'granted') return false;
 
-    await Location.startLocationUpdatesAsync(WARD_TRACKING_TASK, {
-        accuracy: Location.Accuracy.Highest,
-        timeInterval: 10000,
-        distanceInterval: 0,
-        showsBackgroundLocationIndicator: true,
-        foregroundService: {
-            notificationTitle: "ProtectMe+ Safe Zone",
-            notificationBody: "Location shared with your Guardian.",
-            notificationColor: "#e63946"
-        },
-        stopOnTerminate: false, 
-        startOnBoot: true, 
-    });
-
+    await setTrackingMode(true);
     return true;
 };
