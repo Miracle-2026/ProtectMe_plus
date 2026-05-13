@@ -4,53 +4,41 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SERVER_URL } from '../config';
 
 const WARD_TRACKING_TASK = 'BACKGROUND_WARD_TRACKING';
-
-export const setTrackingMode = async (isEmergency) => {
-    const interval = isEmergency ? 10000 : 300000; 
-    await Location.startLocationUpdatesAsync(WARD_TRACKING_TASK, {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: interval,
-        distanceInterval: isEmergency ? 0 : 20,
-        startOnBoot: true,
-        stopOnTerminate: false,
-        foregroundService: {
-            notificationTitle: "ProtectMe+ Active",
-            notificationBody: isEmergency ? "High-priority tracking active." : "Guardian monitoring active.",
-            notificationColor: "#e63946"
-        }
-    });
-};
-
+ 
 TaskManager.defineTask(WARD_TRACKING_TASK, async ({ data, error }) => {
     if (error) {
         console.error('🚨 [TRACKER] TASK ERROR:', error.message);
         return;
     }
-    
+
     if (data) {
         const { locations } = data;
-        const { latitude, longitude } = locations[0].coords;
+        const location = locations[0];
 
         try {
             let token = await AsyncStorage.getItem('protectme_token');
             const refreshToken = await AsyncStorage.getItem('protectme_refresh_token');
- 
+
+            if (!token) return;
+
             const sendTelemetry = async (currentToken) => {
                 return await fetch(`${SERVER_URL}/api/geofences/ward/telemetry`, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json', 
-                        'Authorization': `Bearer ${currentToken}` 
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + currentToken
                     },
-                    body: JSON.stringify({ latitude, longitude })
+                    body: JSON.stringify({
+                        latitude: location.coords.latitude,
+                        longitude: location.coords.longitude,
+                        timestamp: location.timestamp
+                    })
                 });
             };
 
             let response = await sendTelemetry(token);
 
             if (response.status === 401 && refreshToken) {
-                console.log("⚠️ [TRACKER] Token expired. Attempting silent refresh...");
-                
                 const refreshRes = await fetch(`${SERVER_URL}/api/auth/refresh`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -59,16 +47,13 @@ TaskManager.defineTask(WARD_TRACKING_TASK, async ({ data, error }) => {
 
                 if (refreshRes.ok) {
                     const authData = await refreshRes.json();
-                    const newToken = authData.token;
-                    
-                    await AsyncStorage.setItem('protectme_token', newToken); 
-                    console.log("✅ [TRACKER] Refresh successful. Retrying telemetry...");
-                    
-                    await sendTelemetry(newToken);
+                    token = authData.token;
+                    await AsyncStorage.setItem('protectme_token', token);
+                    await sendTelemetry(token);
                 }
             }
         } catch (err) {
-            console.error('🚨 [TRACKER] Background sync failed:', err.message);
+            console.error('🚨 [TRACKER] SYNC FAILED:', err.message);
         }
     }
 });
@@ -80,6 +65,19 @@ export const startWardTracking = async () => {
     const { status: background } = await Location.requestBackgroundPermissionsAsync();
     if (background !== 'granted') return false;
 
-    await setTrackingMode(true);
+    await Location.startLocationUpdatesAsync(WARD_TRACKING_TASK, {
+        accuracy: Location.Accuracy.Balanced, 
+        timeInterval: 5000,
+        distanceInterval: 10,
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+            notificationTitle: "ProtectMe+ Active Protection",
+            notificationBody: "Your location is being shared with your Guardian.",
+            notificationColor: "#e63946"
+        },
+        stopOnTerminate: false,
+        startOnBoot: true,
+    });
+
     return true;
 };

@@ -1,26 +1,27 @@
 {
   "expo": {
     "name": "ProtectMe+",
-    "slug": "frontend",
+    "slug": "protectme-plus",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#050505"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.miracleyashencaleb.protectmeplus",
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "ProtectMe+ requires constant location access to update your Safe Zone status and notify your guardian if your signal is lost.",
+        "NSLocationWhenInUseUsageDescription": "Your location is used to alert nearby community responders during an active SOS."
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
       "package": "com.miracleyashencaleb.protectmeplus",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -29,7 +30,8 @@
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
         "FOREGROUND_SERVICE_DATA_SYNC",
-        "RECEIVE_BOOT_COMPLETED"
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK"
       ],
       "config": {
         "googleMaps": {
@@ -37,14 +39,11 @@
         }
       }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "plugins": [
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow ProtectMe+ to use your location to keep your guardian updated in an emergency.",
+          "locationAlwaysAndWhenInUsePermission": "Allow ProtectMe+ to access your location 'All the time' to ensure your Guardian is notified even if your phone is locked.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }

@@ -6,11 +6,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { addToQueue } from '../../utils/offlineQueue';
-import { stopHeartbeat } from '../../utils/heartbeatSender';
 import * as Linking from 'expo-linking';
 
 import { SERVER_URL } from '../../config';
-
 
 export default function SOSScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
@@ -29,7 +27,7 @@ export default function SOSScreen({ navigation }) {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission Denied', 'Location access is required for SOS');
+                Alert.alert('Permission Denied', 'Location access is required for SOS transmission.');
                 return;
             }
             const loc = await Location.getCurrentPositionAsync({
@@ -43,28 +41,24 @@ export default function SOSScreen({ navigation }) {
 
     const triggerSOS = async (threatType) => {
         if (!location) {
-            Alert.alert('Error', 'Getting your location. Please wait.');
+            Alert.alert('Error', 'Wait for GPS lock before sending alert.');
+            getLocation();
             return;
         }
 
         setLoading(true);
-
         const token = await AsyncStorage.getItem('protectme_token');
 
         const sosPayload = {
             threat_type: threatType,
             latitude: location.latitude,
             longitude: location.longitude,
-            address: 'Location acquired via GPS'
+            address: 'GPS-acquired coordinates'
         };
 
         if (!isConnected) {
             await addToQueue(sosPayload);
-            Alert.alert(
-                'SOS Queued',
-                'No internet connection. Your SOS has been saved and will be sent automatically when connection is restored.',
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
-            );
+            Alert.alert('SOS Queued', 'No internet. Alert will send automatically when online.');
             setLoading(false);
             return;
         }
@@ -86,18 +80,11 @@ export default function SOSScreen({ navigation }) {
                 await startHeartbeat(data.sos.id);
                 
                 Alert.alert(
-                    'SOS Sent ✓',
-                    'Your alert has been sent to nearby community members and your emergency contacts. Do you want to call emergency services (112) now?',
+                    'SOS Broadcasted ✓',
+                    `Alert sent. Response Protocol: ${data.sos.protocol === 'OBSERVATION' ? 'OBSERVE ONLY' : 'ASSISTANCE REQUESTED'}.`,
                     [
-                        {
-                            text: 'Call 112',
-                            onPress: () => callEmergencyServices()
-                        },
-                        {
-                            text: 'No Thanks',
-                            onPress: () => navigation.goBack(),
-                            style: 'cancel'
-                        }
+                        { text: 'Call Emergency (112)', onPress: () => Linking.openURL('tel:112') },
+                        { text: 'I am Safe', onPress: () => navigation.goBack(), style: 'cancel' }
                     ]
                 );
             } else {
@@ -105,59 +92,23 @@ export default function SOSScreen({ navigation }) {
             }
         } catch (error) {
             await addToQueue(sosPayload);
-            Alert.alert(
-                'SOS Queued',
-                'Connection failed. Your SOS has been saved and will be sent when connection is restored.',
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
-            );
+            Alert.alert('SOS Queued', 'Connection failed. Alert saved to queue.');
         } finally {
             setLoading(false);
         }
     };
 
-    const callEmergencyServices = async () => {
-        try {
-            await Linking.openURL('tel:112');
-        } catch (error) {
-            console.error('Call error:', error.message);
-        }
-    };
-
-    const confirmSOS = (threatType) => {
-        Alert.alert(
-            'Confirm SOS',
-            threatType === 'ARMED'
-            ? 'Send emergency alert for an armed threat?'
-            : 'Send emergency alert for an unarmed threat?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Send SOS',
-                    style: 'destructive',
-                    onPress: () => triggerSOS(threatType)
-                }
-            ]
-        );
-    };
-
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Emergency SOS</Text>
-            <Text style={styles.subtitle}>Is the threat armed?</Text>
+            <Text style={styles.subtitle}>Specify the threat level immediately</Text>
+
+            {}
+            
 
             {!isConnected && (
                 <View style={styles.offlineBanner}>
-                     <Text style={styles.offlineText}>
-                        ⚠️ No internet - SOS will be queued locally
-                    </Text>
-                </View>    
-            )}
-
-            {!location && (
-                <View style={styles.locationBanner}>
-                    <Text style={styles.locationText}>
-                        📍 Acquiring your location...
-                    </Text>
+                    <Text style={styles.offlineText}>⚠️ OFFLINE: SOS will be queued locally</Text>
                 </View>    
             )}
 
@@ -166,19 +117,21 @@ export default function SOSScreen({ navigation }) {
             ) : (
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
-                    style={[styles.threatButton, styles.armedButton]}
-                    onPress={() => confirmSOS('ARMED')}
+                        style={[styles.threatButton, styles.armedButton]}
+                        onPress={() => triggerSOS('ARMED')}
                     >
                         <Text style={styles.threatButtonIcon}>⚠️</Text>
-                        <Text style={styles.threatButtonText}>YES - ARMED</Text>
+                        <Text style={styles.threatButtonText}>ARMED THREAT</Text>
+                        <Text style={styles.buttonDesc}>PROTOCOL: OBSERVATION ONLY</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                    style={[styles.threatButton, styles.unarmedButton]}
-                    onPress={() => confirmSOS('UNARMED')}
+                        style={[styles.threatButton, styles.unarmedButton]}
+                        onPress={() => triggerSOS('UNARMED')}
                     >
                         <Text style={styles.threatButtonIcon}>🆘</Text>
-                        <Text style={styles.threatButtonText}>NO - UNARMED</Text>
+                        <Text style={styles.threatButtonText}>UNARMED THREAT</Text>
+                        <Text style={styles.buttonDesc}>PROTOCOL: INTERVENTION REQUESTED</Text>
                     </TouchableOpacity>
                 </View>    
             )}
@@ -187,72 +140,16 @@ export default function SOSScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#0a0a0a',
-        padding: 20,
-        alignItems: 'center'
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#e63946',
-        marginTop: 20,
-        marginBottom: 8
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#ffffff',
-        marginBottom: 20
-    },
-    offlineBanner: {
-        backgroundColor: '#333',
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 16,
-        width: '100%'
-    },
-    offlineText: {
-        color:'#ffcc00',
-        textAlign: 'center',
-        fontSize: 13
-    },
-    locationBanner: {
-        backgroundColor: '#1a1a1a',
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 16,
-        width: '100%'
-    },
-    locationText: {
-        color: '#666',
-        textAlign: 'center',
-        fontSize: 13
-    },
-    buttonContainer: {
-        width: '100%',
-        marginTop: 30,
-        gap: 16
-    },
-    threatButton: {
-        width: '100%',
-        padding: 30,
-        borderRadius: 16,
-        alignItems: 'center'
-    },
-    armedButton: {
-        backgroundColor: '#7d0000'
-    },
-    unarmedButton: {
-        backgroundColor: '#e63946'
-    },
-    threatButtonIcon: {
-        fontSize: 40,
-        marginBottom: 10
-    },
-    threatButtonText: {
-        color: '#ffffff',
-        fontSize: 22,
-        fontWeight: 'bold'
-    }
+    container: { flex: 1, backgroundColor: '#050505', padding: 20, alignItems: 'center' },
+    title: { fontSize: 32, fontWeight: '900', color: '#e63946', marginTop: 40, letterSpacing: 1 },
+    subtitle: { fontSize: 14, color: '#888', marginBottom: 30, fontWeight: '600' },
+    offlineBanner: { backgroundColor: 'rgba(255, 204, 0, 0.1)', padding: 12, borderRadius: 10, marginBottom: 20, width: '100%', borderWidth: 1, borderColor: '#ffcc00' },
+    offlineText: { color:'#ffcc00', textAlign: 'center', fontSize: 12, fontWeight: 'bold' },
+    buttonContainer: { width: '100%', marginTop: 20, gap: 20 },
+    threatButton: { width: '100%', paddingVertical: 35, borderRadius: 20, alignItems: 'center', elevation: 8 },
+    armedButton: { backgroundColor: '#4a0000' },
+    unarmedButton: { backgroundColor: '#e63946' },
+    threatButtonIcon: { fontSize: 40, marginBottom: 10 },
+    threatButtonText: { color: '#ffffff', fontSize: 24, fontWeight: '900' },
+    buttonDesc: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 'bold', marginTop: 5, letterSpacing: 1 }
 });

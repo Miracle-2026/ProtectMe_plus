@@ -10,9 +10,13 @@ const {
 } = require('../controllers/sosController');
 
 router.post('/trigger', authenticate, triggerSOS);
+
 router.get('/active', authenticate, getActiveSOSEvents);
+
 router.patch('/:id/resolve', authenticate, resolveSOSEvent);
+
 router.post('/heartbeat', authenticate, logHeartbeat);
+
 router.post('/respond', authenticate, respondToSOS);
 
 module.exports = router;

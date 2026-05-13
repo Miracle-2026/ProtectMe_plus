@@ -4,17 +4,12 @@ const { getIO } = require('../utils/socket');
 const MAX_GEOFENCES = 5;
 
 const createGeofence = async (req, res) => {
-    // We do not trust the frontend. We only take the math.
     const { name, latitude, longitude, radius_meters } = req.body; 
     const guardianId = req.user.userId;
 
     try {
         if (!name || !latitude || !longitude || !radius_meters) {
-            return res.status(400).json({ error: 'Name, location and radius are required' });
-        }
-
-        if (radius_meters < 50) {
-            return res.status(400).json({ error: 'Radius must be at least 50 meters' });
+            return res.status(400).json({ error: 'All fields required' });
         }
 
         const wardResult = await pool.query(
@@ -23,33 +18,20 @@ const createGeofence = async (req, res) => {
         );
 
         if (wardResult.rows.length === 0) {
-            return res.status(400).json({ error: 'You must link a Ward before creating a Safe Zone.' });
+            return res.status(400).json({ error: 'No linked Ward found for this account.' });
         }
         
         const targetWardId = wardResult.rows[0].ward_id;
-
-        const countResult = await pool.query(
-            'SELECT COUNT(*) FROM geofences WHERE guardian_id = $1',
-            [guardianId]
-        );
-
-        if (parseInt(countResult.rows[0].count, 10) >= MAX_GEOFENCES) {
-            return res.status(403).json({ error: `You cannot create more than ${MAX_GEOFENCES} active geofences.` });
-        }
 
         const result = await pool.query(
             `INSERT INTO geofences
             (guardian_id, ward_id, name, center, radius_meters)
             VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6)
-            RETURNING id, name, radius_meters, is_active, created_at`,
+            RETURNING id, name, radius_meters, is_active`,
             [guardianId, targetWardId, name, longitude, latitude, radius_meters]
         );
 
-        res.status(201).json({
-            message: 'Geofence created successfully',
-            geofence: result.rows[0]
-        });
-
+        res.status(201).json({ message: 'Safe Zone created', geofence: result.rows[0] });
     } catch (error) {
         console.error('Create geofence error:', error.message);
         res.status(500).json({ error: 'Internal server error' });
@@ -58,98 +40,64 @@ const createGeofence = async (req, res) => {
 
 const getGeofences = async (req, res) => {
     const guardianId = req.user.userId;
-
     try {
         const result = await pool.query(
-            `SELECT
-            id, name, radius_meters, is_active, created_at,
-            ST_X(center::geometry) as longitude,
-            ST_Y(center::geometry) as latitude
-            FROM geofences
-            WHERE guardian_id = $1
-            ORDER BY created_at DESC`,
+            `SELECT id, name, radius_meters, is_active, 
+            ST_X(center::geometry) as longitude, ST_Y(center::geometry) as latitude
+            FROM geofences WHERE guardian_id = $1 ORDER BY created_at DESC`,
             [guardianId]
         );
-
         res.json({ geofences: result.rows });
-
     } catch (error) {
-        console.error('Get geofences error:', error.message);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
 
 const checkGeofenceBreach = async (req, res) => {
     const { latitude, longitude } = req.body;
-    const userId = req.user.userId;
+    const wardId = req.user.userId;
 
     try {
-        if (!latitude || !longitude) {
-            return res.status(400).json({ error: 'Location is required' });
-        }
-
         const result = await pool.query(
-            `SELECT id, name, radius_meters,
+            `SELECT id, name, radius_meters, guardian_id,
             ST_Distance(center::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance_meters
             FROM geofences
-            WHERE guardian_id = $3 AND is_active = true`,
-            [longitude, latitude, userId]
+            WHERE ward_id = $3 AND is_active = true`,
+            [longitude, latitude, wardId]
         );
 
-        if (result.rows.length === 0) {
-            return res.json({ breached: false, message: 'No active geofences found' });
-        }
+        if (result.rows.length === 0) return res.status(200).send();
 
-        const breaches = result.rows.filter(f => f.distance_meters > f.radius_meters);
-
-        if (breaches.length > 0) {
-            const io = getIO();
-            io.to(userId).emit('geofence_breach', {
-                breaches: breaches.map(f => ({
+        const io = getIO();
+        result.rows.forEach(f => {
+            if (f.distance_meters > f.radius_meters) {
+                io.to(f.guardian_id).emit('geofence_breach', {
                     geofence_name: f.name,
                     distance_meters: Math.round(f.distance_meters),
-                    radius_meters: f.radius_meters,
-                    message: 'You have left the safe zone: ' + f.name
-                }))
-            });
+                    location: {
+                        latitude: latitude,
+                        longitude: longitude
+                    },
+                    message: `Ward has exited Safe Zone: ${f.name}`
+                });
+            }
+        });
 
-            return res.json({
-                breached: true,
-                breaches: breaches.map(f => ({
-                    geofence_name: f.name,
-                    distance_meters: Math.round(f.distance_meters),
-                    radius_meters: f.radius_meters
-                }))
-            });
-        }
-
-        res.json({ breached: false, message: 'Within all safe zones' });
-
+        res.status(200).send();
     } catch (error) {
-        console.error('Geofence check error:', error.message);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Breach check error:', error.message);
+        res.status(500).send();
     }
 };
 
 const deleteGeofence = async (req, res) => {
     const { id } = req.params;
     const guardianId = req.user.userId;
-
     try {
-        const result = await pool.query(
-            `DELETE FROM geofences WHERE id = $1 AND guardian_id = $2 RETURNING id`,
-            [id, guardianId]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Geofence not found or not authorized' });
-        }
-
-        res.json({ message: 'Geofence deleted successfully' });
-
+        await pool.query('DELETE FROM geofences WHERE id = $1 AND guardian_id = $2', [id, guardianId]);
+        res.json({ message: 'Deleted' });
     } catch (error) {
-        console.error('Delete geofence error:', error.message);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).send();
     }
 };
 

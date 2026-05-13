@@ -10,7 +10,8 @@ const getSettings = async (req, res) => {
         
         if (result.rows.length === 0) {
             result = await pool.query(
-                'INSERT INTO user_settings (user_id) VALUES ($1) RETURNING *',
+                `INSERT INTO user_settings (user_id, wake_word, map_visibility) 
+                 VALUES ($1, 'help protectme', true) RETURNING *`,
                 [userId]
             );
         }
@@ -24,21 +25,23 @@ const getSettings = async (req, res) => {
 
 const updateSettings = async (req, res) => {
     const userId = req.user.userId;
-    const { wake_word, wake_word_enabled } = req.body;
+    const { wake_word, wake_word_enabled, map_visibility } = req.body;
     
     try {
         const result = await pool.query(
-            `INSERT INTO user_settings (user_id, wake_word, wake_word_enabled) 
-             VALUES ($1, COALESCE($2, 'help protectme'), COALESCE($3, true)) 
+            `INSERT INTO user_settings (user_id, wake_word, wake_word_enabled, map_visibility) 
+             VALUES ($1, COALESCE($2, 'help protectme'), COALESCE($3, true), COALESCE($4, true)) 
              ON CONFLICT (user_id) DO UPDATE SET 
              wake_word = COALESCE($2, user_settings.wake_word), 
              wake_word_enabled = COALESCE($3, user_settings.wake_word_enabled), 
+             map_visibility = COALESCE($4, user_settings.map_visibility),
              updated_at = NOW() 
              RETURNING *`,
             [
                 userId, 
                 wake_word !== undefined ? wake_word : null, 
-                wake_word_enabled !== undefined ? wake_word_enabled : null
+                wake_word_enabled !== undefined ? wake_word_enabled : null,
+                map_visibility !== undefined ? map_visibility : null
             ]
         );
         

@@ -12,7 +12,7 @@ const generateTokens = (userId, phone) => {
     const token = jwt.sign(
         { userId, phone },
         process.env.JWT_SECRET,
-        { expiresIn: '30s' } 
+        { expiresIn: '15m' } 
     );
 
     const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
@@ -26,11 +26,16 @@ const generateTokens = (userId, phone) => {
 };
 
 const register = async (req, res) => {
-    const { full_name, phone_number, password, nin } = req.body;
+    const { full_name, phone_number, role, password, nin } = req.body;
 
     try {
-        if (!full_name || !phone_number || !password || !nin) {
-            return res.status(400).json({ error: 'All fields including NIN are required' });
+        if (!full_name || !phone_number || !role || !password || !nin) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+
+        const validRoles = ['guardian', 'ward'];
+        if (!validRoles.includes(role.toLowerCase())) {
+            return res.status(400).json({ error: 'Invalid role selection' });
         }
 
         if (!/^\d{11}$/.test(nin.toString())) {
@@ -43,19 +48,19 @@ const register = async (req, res) => {
         );
 
         if (existingUser.rows.length > 0) {
-            return res.status(409).json({ error: 'An account with this phone number already exists' });
+            return res.status(409).json({ error: 'Account already exists' });
         }
 
         const salt = await bcrypt.genSalt(12);
         const password_hash = await bcrypt.hash(password, salt);
         const nin_encrypted = encrypt(nin.toString());
-
+        
         const result = await pool.query(
-            `INSERT INTO users
-            (full_name, phone_number, password_hash, nin_encrypted)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, full_name, phone_number, is_verified, created_at`,
-            [full_name, phone_number, password_hash, nin_encrypted]
+            `INSERT INTO users 
+            (full_name, phone_number, role, password_hash, nin_encrypted) 
+            VALUES ($1, $2, $3, $4, $5) 
+            RETURNING id, full_name, phone_number, role, is_verified`,
+            [full_name, phone_number, role.toLowerCase(), password_hash, nin_encrypted]
         );
 
         const newUser = result.rows[0];
@@ -79,7 +84,7 @@ const login = async (req, res) => {
 
     try {
         if (!phone_number || !password) {
-            return res.status(400).json({ error: 'Phone number and password are required' });
+            return res.status(400).json({ error: 'Phone number and password required' });
         }
 
         const result = await pool.query(
@@ -88,14 +93,14 @@ const login = async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid phone number or password' });
+            return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         const user = result.rows[0];
         const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
         if (!isValidPassword) {
-            return res.status(401).json({ error: 'Invalid phone number or password' });
+            return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         const { token, refreshToken } = generateTokens(user.id, user.phone_number);
@@ -106,6 +111,7 @@ const login = async (req, res) => {
                 id: user.id,
                 full_name: user.full_name,
                 phone_number: user.phone_number,
+                role: user.role,
                 is_verified: user.is_verified
             },
             token,
@@ -120,10 +126,7 @@ const login = async (req, res) => {
 
 const refresh = async (req, res) => {
     const { refresh_token } = req.body;
-
-    if (!refresh_token) {
-        return res.status(401).json({ error: 'Refresh token required' });
-    }
+    if (!refresh_token) return res.status(401).json({ error: 'Refresh token required' });
 
     try {
         const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
@@ -132,13 +135,12 @@ const refresh = async (req, res) => {
         const token = jwt.sign(
             { userId: decoded.userId, phone: decoded.phone }, 
             process.env.JWT_SECRET, 
-            { expiresIn: '30s' } 
+            { expiresIn: '15m' } 
         );
 
         res.json({ token });
     } catch (error) {
-        console.error('Refresh failed:', error.message);
-        res.status(403).json({ error: 'Invalid refresh token. User must re-authenticate.' });
+        res.status(403).json({ error: 'Invalid refresh token' });
     }
 };
 
@@ -148,7 +150,7 @@ const verifyNIN = async (req, res) => {
 
     try {
         if (!nin || !/^\d{11}$/.test(nin.toString())) {
-            return res.status(400).json({ error: 'NIN must be exactly 11 digits' });
+            return res.status(400).json({ error: 'NIN must be 11 digits' });
         }
 
         const userRecord = await pool.query(
@@ -156,33 +158,22 @@ const verifyNIN = async (req, res) => {
             [userId]
         );
 
-        if (userRecord.rows.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
+        if (userRecord.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
         const storedNin = decrypt(userRecord.rows[0].nin_encrypted);
-        
-        if (storedNin !== nin.toString()) {
-            return res.status(401).json({ error: 'Verification failed: NIN does not match registered profile' });
-        }
+        if (storedNin !== nin.toString()) return res.status(401).json({ error: 'NIN mismatch' });
 
-        await pool.query(
-            'UPDATE users SET is_verified = true, updated_at = NOW() WHERE id = $1',
-            [userId]
-        );
+        await pool.query('UPDATE users SET is_verified = true, updated_at = NOW() WHERE id = $1', [userId]);
 
         const updatedUser = await pool.query(
-            'SELECT id, full_name, phone_number, is_verified FROM users WHERE id = $1',
+            'SELECT id, full_name, phone_number, role, is_verified FROM users WHERE id = $1',
             [userId]
         );
 
-        res.json({
-            message: 'Identity verified successfully',
-            user: updatedUser.rows[0]
-        });
+        res.json({ message: 'Verified', user: updatedUser.rows[0] });
 
     } catch (error) {
-        console.error('Verify NIN error: ', error.message);
+        console.error('Verify error: ', error.message);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

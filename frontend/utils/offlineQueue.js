@@ -5,16 +5,21 @@ const QUEUE_KEY = 'protectme_sos_queue';
 export const addToQueue = async (sosPayload) => {
     try {
         const existing = await getQueue();
-        const updated = [...existing, {
+        
+        const newItem = {
             ...sosPayload,
+            id: `sos_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             queued_at: new Date().toISOString(),
-            id: Date.now().toString()
-        }];
+            retry_count: 0
+        };
+
+        const updated = [...existing, newItem];
         await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
-        console.log('SOS queued locally:', updated.length, 'items in queue');
+        
+        console.log(`[QUEUE] SOS cached locally. Total items: ${updated.length}`);
         return true;
     } catch (error) {
-        console.error('Queue error:', error.message);
+        console.error('[QUEUE ERROR] Failed to cache SOS:', error.message);
         return false;
     }
 };
@@ -24,7 +29,7 @@ export const getQueue = async () => {
         const data = await AsyncStorage.getItem(QUEUE_KEY);
         return data ? JSON.parse(data) : [];
     } catch (error) {
-        console.error('Get queue error:', error.message);
+        console.error('[QUEUE ERROR] Retrieval failed:', error.message);
         return [];
     }
 };
@@ -36,7 +41,7 @@ export const removeFromQueue = async (id) => {
         await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
         return true;
     } catch (error) {
-        console.error('Remove from queue error:', error.message);
+        console.error('[QUEUE ERROR] Cleanup failed:', error.message);
         return false;
     }
 };
@@ -46,7 +51,6 @@ export const clearQueue = async () => {
         await AsyncStorage.removeItem(QUEUE_KEY);
         return true;
     } catch (error) {
-        console.error('Clear queue error:', error.message);
         return false;
     }
 };

@@ -40,10 +40,10 @@ const addContact = async (req, res) => {
 
         const result = await pool.query(
             `INSERT INTO emergency_contacts
-            (user_id, contact_name, contact_phone, relationship, is_primary)
-            VALUES ($1, $2, $3, $4, $5)
+            (user_id, contact_name, contact_phone, relationship, is_primary, is_blocked)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *`,
-            [userId, contact_name, contact_phone, relationship, makePrimary || false]
+            [userId, contact_name, contact_phone, relationship, makePrimary || false, false]
         );
 
         res.status(201).json({
@@ -81,6 +81,30 @@ const getContacts = async (req, res) => {
     }
 };
 
+const toggleBlockContact = async (req, res) => {
+    const { id } = req.params;
+    const { is_blocked } = req.body;
+    const userId = req.user.userId;
+
+    try {
+        const result = await pool.query(
+            `UPDATE emergency_contacts 
+             SET is_blocked = $1 
+             WHERE id = $2 AND user_id = $3 
+             RETURNING *`,
+            [is_blocked, id, userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Contact not found' });
+        }
+
+        res.json({ message: 'Contact privacy settings updated', contact: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 const deleteContact = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
@@ -107,4 +131,4 @@ const deleteContact = async (req, res) => {
     }
 };
 
-module.exports = { addContact, getContacts, deleteContact };
+module.exports = { addContact, getContacts, deleteContact, toggleBlockContact };

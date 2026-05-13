@@ -18,12 +18,13 @@ const authenticate = (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         req.user = decoded;
-
+        
         next();
 
     } catch (error) {
         return res.status(401).json({
-            error: 'Access denied. Invalid or expired token.'
+            error: 'Access denied. Invalid or expired token.',
+            expired: error.name === 'TokenExpiredError'
         });
     }
 };

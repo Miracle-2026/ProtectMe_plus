@@ -11,9 +11,7 @@ import { SERVER_URL } from '../../config';
 export default function MapScreen() {
   const [location, setLocation] = useState(null);
   const [sosEvents, setSosEvents] = useState([]);
-  const [riskAreas, setRiskAreas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showRisk, setShowRisk] = useState(true);
 
   useEffect(() => {
     getLocationAndEvents();
@@ -23,7 +21,7 @@ export default function MapScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location access is required for the map');
+        Alert.alert('Permission Denied', 'Location access is required for the community map');
         setLoading(false);
         return;
       }
@@ -35,20 +33,14 @@ export default function MapScreen() {
 
       const token = await AsyncStorage.getItem('protectme_token');
 
-      const [sosResponse, riskResponse] = await Promise.all([
-        fetch(`${SERVER_URL}/api/sos/active`, {
-          headers: { 'Authorization': 'Bearer ' + token }
-        }),
-        fetch(`${SERVER_URL}/api/risk`, {
-          headers: { 'Authorization': 'Bearer ' + token }
-        })
-      ]);
+      const response = await fetch(`${SERVER_URL}/api/sos/active?user_lat=${loc.coords.latitude}&user_lon=${loc.coords.longitude}`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
 
-      const sosData = await sosResponse.json();
-      const riskData = await riskResponse.json();
-
-      if (sosResponse.ok) setSosEvents(sosData.active_sos_events);
-      if (riskResponse.ok) setRiskAreas(riskData.risk_areas);
+      const data = await response.json();
+      if (response.ok) {
+        setSosEvents(data.active_sos_events);
+      }
 
     } catch (error) {
       console.error('Map error:', error.message);
@@ -57,31 +49,11 @@ export default function MapScreen() {
     }
   };
 
-  const getRiskColor = (level) => {
-    if (level === 'HIGH') return 'rgba(125,0,0,0.25)';
-    if (level === 'MEDIUM') return 'rgba(230,100,0,0.20)';
-    return 'rgba(230,57,70,0.12)';
-  };
-
-  const getRiskStroke = (level) => {
-    if (level === 'HIGH') return '#7d0000';
-    if (level === 'MEDIUM') return '#e66400';
-    return '#e63946';
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#e63946" />
-        <Text style={styles.loadingText}>Loading map...</Text>
-      </View>
-    );
-  }
-
-  if (!location) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Could not get your location</Text>
+        <Text style={styles.loadingText}>Connecting to safety network...</Text>
       </View>
     );
   }
@@ -91,8 +63,8 @@ export default function MapScreen() {
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: location.latitude,
-          longitude: location.longitude,
+          latitude: location?.latitude || 9.0579,
+          longitude: location?.longitude || 7.4951,
           latitudeDelta: 0.05,
           longitudeDelta: 0.05
         }}
@@ -106,8 +78,8 @@ export default function MapScreen() {
                 latitude: parseFloat(event.latitude),
                 longitude: parseFloat(event.longitude)
               }}
-              title={event.threat_type === 'ARMED' ? '⚠️ Armed Threat' : '🆘 Help Needed'}
-              description={event.protocol === 'OBSERVATION' ? 'DO NOT APPROACH' : 'Community help requested'}
+              title={event.threat_type === 'ARMED' ? '⚠️ ARMED THREAT' : '🆘 ASSISTANCE NEEDED'}
+              description={event.protocol === 'OBSERVATION' ? 'OBSERVE ONLY - DO NOT APPROACH' : 'Intervention requested'}
               pinColor={event.threat_type === 'ARMED' ? '#7d0000' : '#e63946'}
             />
             <Circle
@@ -117,56 +89,31 @@ export default function MapScreen() {
               }}
               radius={300}
               fillColor={event.threat_type === 'ARMED'
-                ? 'rgba(125,0,0,0.15)'
-                : 'rgba(230,57,70,0.15)'}
+                ? 'rgba(125,0,0,0.2)'
+                : 'rgba(230,57,70,0.2)'}
               strokeColor={event.threat_type === 'ARMED' ? '#7d0000' : '#e63946'}
-              strokeWidth={1}
+              strokeWidth={2}
             />
           </React.Fragment>
         ))}
-
-        {showRisk && riskAreas.map((area, index) => (
-          <Circle
-            key={'risk-' + index}
-            center={{
-              latitude: area.latitude,
-              longitude: area.longitude
-            }}
-            radius={800}
-            fillColor={getRiskColor(area.risk_level)}
-            strokeColor={getRiskStroke(area.risk_level)}
-            strokeWidth={1}
-          />
-        ))}
       </MapView>
 
-      <TouchableOpacity
-        style={styles.riskToggle}
-        onPress={() => setShowRisk(!showRisk)}
-      >
-        <Text style={styles.riskToggleText}>
-          {showRisk ? '🔴 Hide Risk Zones' : '🔴 Show Risk Zones'}
-        </Text>
+      {}
+      <TouchableOpacity style={styles.refreshButton} onPress={getLocationAndEvents}>
+        <Text style={styles.refreshText}>🔄 REFRESH ALERTS</Text>
       </TouchableOpacity>
 
+      {}
       <View style={styles.legend}>
-        <Text style={styles.legendTitle}>
-          Active SOS: {sosEvents.length} | Risk Zones: {riskAreas.length}
-        </Text>
+        <Text style={styles.legendTitle}>COMMUNITY EMERGENCY FEED</Text>
         <View style={styles.legendRow}>
           <View style={[styles.legendDot, { backgroundColor: '#7d0000' }]} />
-          <Text style={styles.legendText}>Armed — Observe Only</Text>
+          <Text style={styles.legendText}>ARMED: Observation Protocol Only</Text>
         </View>
         <View style={styles.legendRow}>
           <View style={[styles.legendDot, { backgroundColor: '#e63946' }]} />
-          <Text style={styles.legendText}>Unarmed — Help Needed</Text>
+          <Text style={styles.legendText}>UNARMED: Assistance Requested</Text>
         </View>
-        {showRisk && (
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: '#e66400' }]} />
-            <Text style={styles.legendText}>AI Risk Zone (7-day history)</Text>
-          </View>
-        )}
       </View>
     </View>
   );
@@ -175,33 +122,32 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
-  loadingContainer: { flex: 1, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#666', marginTop: 12 },
-  errorText: { color: '#e63946', fontSize: 16 },
-  riskToggle: {
+  loadingContainer: { flex: 1, backgroundColor: '#050505', justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: '#888', marginTop: 12, fontWeight: 'bold' },
+  refreshButton: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: 'rgba(10,10,10,0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e63946'
+    top: 50,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(230, 57, 70, 0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    elevation: 5
   },
-  riskToggleText: { color: '#e63946', fontSize: 12, fontWeight: 'bold' },
+  refreshText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
   legend: {
     position: 'absolute',
-    bottom: 20,
-    left: 16,
-    backgroundColor: 'rgba(10,10,10,0.9)',
-    padding: 12,
-    borderRadius: 12,
+    bottom: 30,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(10,10,10,0.95)',
+    padding: 15,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: '#333'
   },
-  legendTitle: { color: '#ffffff', fontSize: 12, fontWeight: 'bold', marginBottom: 8 },
-  legendRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-  legendText: { color: '#ccc', fontSize: 11 }
+  legendTitle: { color: '#e63946', fontSize: 13, fontWeight: '900', marginBottom: 10, letterSpacing: 1 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  legendDot: { width: 12, height: 12, borderRadius: 6, marginRight: 10 },
+  legendText: { color: '#ccc', fontSize: 11, fontWeight: '600' }
 });

@@ -15,24 +15,20 @@ export const connectSocket = (userId) => {
     });
 
     socket.on('connect', () => {
-        console.log('[SOCKET] Connected:', socket.id);
+        console.log('[SOCKET] Connected to ProtectMe+ Network:', socket.id);
         socket.emit('join', userId);
     });
 
     socket.on('sos_alert', (data) => {
-        console.log('[ALERT] New SOS nearby:', data);
+        console.log('[ALERT] New Emergency Nearby:', data);
     });
 
     socket.on('geofence_breach', (data) => {
-        console.log('[BREACH] Ward has left Safe Zone:', data);
-    });
-
-    socket.on('signal_lost', (data) => {
-        console.log('[SIGNAL] Ward tracking interrupted:', data);
+        console.log('[BREACH] Ward has exited a Safe Zone:', data);
     });
 
     socket.on('disconnect', () => {
-        console.log('[SOCKET] Disconnected');
+        console.log('[SOCKET] Disconnected from network');
     });
 
     return socket;

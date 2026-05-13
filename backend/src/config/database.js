@@ -11,8 +11,14 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD,
 });
 
-pool.on('connect', ()=> {
+pool.on('connect', async (client) => {
     console.log('Connected to ProtectMe+ database');
+    
+    try {
+        await client.query('CREATE EXTENSION IF NOT EXISTS postgis');
+    } catch (err) {
+        console.error('PostGIS extension initialization failed:', err.message);
+    }
 });
 
 pool.on('error', (err) => {

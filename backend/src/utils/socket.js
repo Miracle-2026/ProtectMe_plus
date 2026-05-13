@@ -6,7 +6,7 @@ const init = (socketInstance) => {
 
 const getIO = () => {
     if (!io) {
-        throw new Error('Socket.io not initialized');
+        throw new Error('Socket.io not initialized. Emergency alerts cannot be broadcasted.');
     }
     return io;
 };
